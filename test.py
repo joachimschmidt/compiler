@@ -1,1 +1,0 @@
-print("Oto kompilator")
