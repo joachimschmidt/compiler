@@ -2,8 +2,8 @@ import argparse
 
 from lexer import CompilerLexer
 from parser import CompilerParser
-
-
+from pre_parser import CompilerPreParser
+from variable_prepare import VariablePrepare
 def parse_arguments():
     argument_parser = argparse.ArgumentParser()
     argument_parser.add_argument(
@@ -22,10 +22,15 @@ if __name__ == '__main__':
     with open(args.input_file, 'r') as input_file:
         code = input_file.read()
         lexer = CompilerLexer()
+        pre_parser = CompilerPreParser()
         parser = CompilerParser()
         try:
+            pre_parse_ready = lexer.tokenize(code)
             parse_ready = lexer.tokenize(code)
-            parser.parse(parse_ready)
+            variables = pre_parser.parse(pre_parse_ready)
+            variable_prepare = VariablePrepare(variables)
+            variable_prepare.get_optimized_variables()
+            #parser.parse(parse_ready)
         except Exception as e:
             print(e)
         commands = []
