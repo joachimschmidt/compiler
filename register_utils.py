@@ -4,7 +4,7 @@ def cost_of_set_const(value):
     for i in range(len(binary)):
         if binary[i] == "1":
             cost += 1
-        if i < len(binary)-1:
+        if i < len(binary) - 1:
             cost += 1
     return cost
 
@@ -42,14 +42,7 @@ def cost_of_set_by_steps_and_sub(start, goal, copy_value):
 
 
 def get_binary(value):
-    r = ""
-    while value != 0:
-        if value % 2:
-            r = "1" + r
-        else:
-            r = "0" + r
-        value = int(value / 2)
-    return r
+    return str(bin(value).replace('0b', ''))
 
 
 def set_register_to_value(method, letter, value, registers, register):
@@ -111,6 +104,7 @@ def set_register_by_add_and_steps(register, letter, help_register, value):
         command = "DEC " + letter
     for i in range(diff):
         commands.append(command)
+    return commands
 
 
 def set_register_by_sub_and_steps(register, letter, help_register, value):
@@ -123,6 +117,7 @@ def set_register_by_sub_and_steps(register, letter, help_register, value):
         command = "DEC " + letter
     for i in range(diff):
         commands.append(command)
+    return commands
 
 
 def set_register_by_steps(letter, register, value):
@@ -139,11 +134,11 @@ def set_register_by_steps(letter, register, value):
 
 def set_register_to_const(letter, const):
     commands = ["RESET " + letter]
-    binary = get_binary(const)
+    binary = str(bin(const).replace('0b', ''))
     for i in range(len(binary)):
         if binary[i] == "1":
             commands.append("INC " + letter)
-        if i < len(binary)-1:
+        if i < len(binary) - 1:
             commands.append("SHL " + letter)
     return commands
 
@@ -178,8 +173,9 @@ def get_set_register_best_method(reg, value, all_register):
                 min_cost = base_and_add
                 current_method = "baseadd " + register.letter
     for register in all_register:
-        copy_and_steps = cost_of_set_by_copy_and_steps(value, register.value)
-        if copy_and_steps < min_cost:
-            min_cost = copy_and_steps
-            current_method = "copysteps " + register.letter
+        if register.letter != reg.letter:
+            copy_and_steps = cost_of_set_by_copy_and_steps(value, register.value)
+            if copy_and_steps < min_cost:
+                min_cost = copy_and_steps
+                current_method = "copysteps " + register.letter
     return min_cost, current_method

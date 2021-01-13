@@ -4,6 +4,9 @@ class Variable:
         self.memory_address = memory_address
         self.occurrences = 0
 
+    def __str__(self):
+        return str(self.name)
+
 
 class Number(Variable):
     def __init__(self, name, value, memory_address):
@@ -12,6 +15,9 @@ class Number(Variable):
         self.saved = False
         self.is_stored = False
         super().__init__(name, memory_address)
+
+    def __str__(self):
+        return "Number {} storable:{} saved:{}".format(self.name, self.is_stored, self.saved)
 
 
 class Iterator(Variable):

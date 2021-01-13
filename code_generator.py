@@ -29,9 +29,9 @@ class CodeGenerator:
 
     def get_all_registers(self, known_only=False):
         if known_only:
-            regs = [x for x, y in self.registers.items() if isinstance(x, Register) and x.known_value]
+            regs = [x for y, x in self.registers.items() if isinstance(x, Register) and x.known_value]
         else:
-            regs = [x for x, y in self.registers.items() if isinstance(x, Register)]
+            regs = [x for y, x in self.registers.items() if isinstance(x, Register)]
         return regs
 
     def add_command(self, command):
@@ -62,7 +62,9 @@ class CodeGenerator:
     def save_to_memory(self, register, variable):
         self.set_address(variable)
         self.add_command("STORE {} {}".format(register, "a"))
-        if isinstance(variable, Identifier):
+        if isinstance(variable, Number):
+            self.variables[variable.name].saved = True
+        elif isinstance(variable, Identifier):
             self.variables[variable.name].initialized = True
 
     def get_from_memory(self, register, variable):
@@ -78,10 +80,12 @@ class CodeGenerator:
             if isinstance(variable, Number):
                 self.registers[register].known_value = True
                 self.registers[register].value = variable.value
+            else:
+                self.registers[register].known_value = False
 
     def set_register_value(self, letter, value):
         cost, method = self.get_cost_and_method_of_set_register_to_value(letter, value)
-        #print("Setting {} to {} by {} that costs {}".format(letter, value, method, cost))
+        print("Setting {} to {} by {} that costs {}".format(letter, value, method, cost))
         register = self.get_register_by_letter(letter)
         ready_code = set_register_to_value(method, letter, value, self.get_all_registers(), register)
         self.k += len(ready_code)
@@ -94,10 +98,13 @@ class CodeGenerator:
         if number.is_stored and not number.saved:
             self.save_to_memory(letter, number)
 
-    def get_cost_and_method_of_set_register_to_value(self, letter, value):
+    def get_cost_and_method_of_set_register_to_value(self, letter, value, cost_only=False):
         register = self.get_register_by_letter(letter)
         registers = self.get_all_registers(known_only=True)
-        return get_set_register_best_method(register, value, registers)
+        if not cost_only:
+            return get_set_register_best_method(register, value, registers)
+        x, y = get_set_register_best_method(register, value, registers)
+        return x
 
     def end_program(self):
         self.add_command("HALT")
@@ -167,7 +174,122 @@ class CodeGenerator:
                 self.handle_error("Variable {} not initialized".format(variable.name), line)
 
     def e_operation(self, name_a, name_b, operation, line):
+        a = self.variables[name_a]
+        b = self.variables[name_b]
+        self.check_initialization(a, line)
+        self.check_initialization(b, line)
+        if operation == "+":
+            self.e_add(a, b, line)
+        elif operation == "-":
+            self.e_sub(a, b, line)
+        elif operation == "*":
+            self.e_mul(a, b, line)
+        elif operation == "/":
+            self.e_div(a, b, line)
+        elif operation == "%":
+            self.e_mod(a, b, line)
+
+    def e_add(self, a, b, line):
+        if isinstance(a, Number) and isinstance(b, Number):
+            result = a.value + b.value
+            cost_const = self.get_cost_and_method_of_set_register_to_value("b", result, cost_only=True)
+            cost_alt1 = self.get_cost_and_method_of_set_register_to_value("b", a.value, cost_only=True)
+            cost_alt1 += self.get_cost_and_method_of_set_register_to_value("c", b.value, cost_only=True)
+            cost_alt1 += 5
+            cost_alt2 = self.get_cost_and_method_of_set_register_to_value("b", b.value, cost_only=True)
+            cost_alt2 += self.get_cost_and_method_of_set_register_to_value("c", a.value, cost_only=True)
+            cost_alt2 += 5
+            if a.saved and b.saved:
+                cost_alt3 = self.get_cost_and_method_of_set_register_to_value("a", a.memory_address, cost_only=True)
+                cost_alt3 += 20
+                cost_alt3 += self.get_cost_and_method_of_set_register_to_value("a", b.memory_address, cost_only=True)
+                cost_alt3 += 25
+                cost_alt4 = self.get_cost_and_method_of_set_register_to_value("a", a.memory_address, cost_only=True)
+                cost_alt4 += self.get_cost_and_method_of_set_register_to_value("b", b.value, cost_only=True)
+                cost_alt4 += 25
+                cost_alt5 = self.get_cost_and_method_of_set_register_to_value("a", b.memory_address, cost_only=True)
+                cost_alt5 += self.get_cost_and_method_of_set_register_to_value("c", a.value, cost_only=True)
+                cost_alt5 += 25
+                if cost_const < cost_alt1 and cost_const < cost_alt2 and cost_const < cost_alt3 and cost_const < cost_alt4 and cost_const < cost_alt5:
+                    self.set_register_value("b", result)
+                else:
+                    if cost_alt1 < cost_alt2 and cost_alt1 < cost_alt3 and cost_alt1 < cost_alt4 and cost_alt1 < cost_alt5:
+                        self.set_register_value("b", a.value)
+                        self.set_register_value("c", b.value)
+                    elif cost_alt2 < cost_alt1 and cost_alt2 < cost_alt3 and cost_alt2 < cost_alt4 and cost_alt2 < cost_alt5:
+                        self.set_register_value("b", b.value)
+                        self.set_register_value("c", a.value)
+                    elif cost_alt3 < cost_alt1 and cost_alt3 < cost_alt2 and cost_alt3 < cost_alt4 and cost_alt3 < cost_alt5:
+                        self.get_from_memory("b", a)
+                        self.get_from_memory("c", b)
+                    elif cost_alt4 < cost_alt1 and cost_alt4 < cost_alt2 and cost_alt4 < cost_alt3 and cost_alt4 < cost_alt5:
+                        self.get_from_memory("b", a)
+                        self.set_register_value("c", b.value)
+                    else:
+                        self.get_from_memory("b", b)
+                        self.set_register_value("c", a.value)
+                    self.registers["b"].value = result
+                    self.add_command("ADD b c")
+            elif a.saved:
+                cost_alt3 = self.get_cost_and_method_of_set_register_to_value("a", a.memory_address, cost_only=True)
+                cost_alt3 += self.get_cost_and_method_of_set_register_to_value("b", b.value, cost_only=True)
+                cost_alt3 += 25
+                if cost_const < cost_alt1 and cost_const < cost_alt2 and cost_const < cost_alt3:
+                    self.set_register_value("b", result)
+                else:
+                    if cost_alt1 < cost_alt2 and cost_alt1 < cost_alt3:
+                        self.set_register_value("b", a.value)
+                        self.set_register_value("c", b.value)
+                    elif cost_alt2 < cost_alt1 and cost_alt2 < cost_alt3:
+                        self.set_register_value("b", b.value)
+                        self.set_register_value("c", a.value)
+                    else:
+                        self.get_from_memory("b", a)
+                        self.set_register_value("c", b)
+                    self.registers["b"].value = result
+                    self.add_command("ADD b c")
+            elif b.saved:
+                cost_alt3 = self.get_cost_and_method_of_set_register_to_value("a", b.memory_address, cost_only=True)
+                cost_alt3 += self.get_cost_and_method_of_set_register_to_value("c", a.value, cost_only=True)
+                cost_alt3 += 25
+                if cost_const < cost_alt1 and cost_const < cost_alt2 and cost_const < cost_alt3:
+                    self.set_register_value("b", result)
+                else:
+                    if cost_alt1 < cost_alt2 and cost_alt1 < cost_alt3:
+                        self.set_register_value("b", a.value)
+                        self.set_register_value("c", b.value)
+                    elif cost_alt2 < cost_alt1 and cost_alt2 < cost_alt3:
+                        self.set_register_value("b", b.value)
+                        self.set_register_value("c", a.value)
+                    else:
+                        self.get_from_memory("b", b)
+                        self.set_register_value("c", a)
+                    self.registers["b"].value = result
+                    self.add_command("ADD b c")
+            else:
+                if cost_const < cost_alt1 and cost_const < cost_alt2:
+                    self.set_register_value("b", result)
+                else:
+                    if cost_alt1 < cost_alt2:
+                        self.set_register_value("b", a.value)
+                        self.set_register_value("c", b.value)
+                    else:
+                        self.set_register_value("b", b.value)
+                        self.set_register_value("c", a.value)
+                    self.registers["b"].value = result
+                    self.add_command("ADD b c")
+
+        elif isinstance(a, Number):
+            pass
+
+    def e_sub(self, name_a, name_b, line):
         pass
 
-    def condition(self, name_a, name_b, condition, line):
+    def e_mul(self, name_a, name_b, line):
+        pass
+
+    def e_div(self, name_a, name_b, line):
+        pass
+
+    def e_mod(self, name_a, name_b, line):
         pass
