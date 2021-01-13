@@ -1,5 +1,6 @@
 from sly import Parser
 
+from compiler_exception import CompilerException
 from lexer import CompilerLexer
 from variable import *
 
@@ -199,4 +200,4 @@ class CompilerPreParser(Parser):
         self.count_variable(p[0])
 
     def error(self, token):
-        raise Exception("Syntax error in grammar in preparsing {}")
+        raise CompilerException("Syntax error", token.lineno)

@@ -1,9 +1,13 @@
 import argparse
 
+from code_generator import CodeGenerator
+from compiler_exception import CompilerException
 from lexer import CompilerLexer
 from parser import CompilerParser
 from pre_parser import CompilerPreParser
 from variable_prepare import VariablePrepare
+
+
 def parse_arguments():
     argument_parser = argparse.ArgumentParser()
     argument_parser.add_argument(
@@ -23,17 +27,17 @@ if __name__ == '__main__':
         code = input_file.read()
         lexer = CompilerLexer()
         pre_parser = CompilerPreParser()
-        parser = CompilerParser()
         try:
             pre_parse_ready = lexer.tokenize(code)
             parse_ready = lexer.tokenize(code)
             variables = pre_parser.parse(pre_parse_ready)
             variable_prepare = VariablePrepare(variables)
-            variable_prepare.get_optimized_variables()
-            #parser.parse(parse_ready)
-        except Exception as e:
-            print(e)
-        commands = []
-
-    with open(args.output_file, 'w') as output_file:
-        output_file.write("\n".join(commands))
+            optimized_variables = variable_prepare.get_optimized_variables()
+            #variable_prepare.print_variables()
+            generator = CodeGenerator(optimized_variables)
+            parser = CompilerParser(generator)
+            parser.parse(parse_ready)
+            with open(args.output_file, 'w') as output_file:
+                output_file.write("\n".join(generator.commands))
+        except CompilerException as e:
+            print("Error: {} on line {}".format(e.error, e.line))

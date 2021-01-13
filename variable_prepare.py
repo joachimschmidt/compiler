@@ -10,7 +10,7 @@ class VariablePrepare:
             print("Variable {} memoryindex {} with {} occurrences".format(name, variable.memory_address,
                                                                           variable.occurrences))
 
-    def get_optimized_variables(self):
+    def calculate_optimized_variables(self):
         memory_index = 0
         self.variables = dict(sorted(self.variables.items(), key=lambda item: item[1].occurrences, reverse=True))
         optimized_variables = {}
@@ -46,4 +46,10 @@ class VariablePrepare:
         for name, number in numbers.items():
             optimized_variables[name] = number
         self.variables = optimized_variables
-        self.print_variables()
+
+    def get_variables(self):
+        return self.variables
+
+    def get_optimized_variables(self):
+        self.calculate_optimized_variables()
+        return self.variables

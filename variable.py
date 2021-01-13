@@ -9,6 +9,7 @@ class Number(Variable):
     def __init__(self, name, value, memory_address):
         self.value = value
         self.in_write = False
+        self.saved = False
         self.is_stored = False
         super().__init__(name, memory_address)
 

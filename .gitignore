@@ -1,2 +1,6 @@
 # Created by .ignore support plugin (hsz.mobi)
 .idea/
+__pycache__/
+out.mr
+test1.imp
+maszyna-wirtualna-cln
