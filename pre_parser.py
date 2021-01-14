@@ -200,4 +200,6 @@ class CompilerPreParser(Parser):
         self.count_variable(p[0])
 
     def error(self, token):
-        raise CompilerException("Syntax error", token.lineno)
+        if token is not None:
+            raise CompilerException("Syntax error", token.lineno)
+        raise CompilerException("End of file", -1)

@@ -135,7 +135,7 @@ class CompilerParser(Parser):
        'value LOWEREQUALTHAN value',
        'value GREATEREQUALTHAN value')
     def condition(self, p):
-        self.generator.condition(p[0], p[2], p[1], p.lineno)
+        self.generator.conditions(p[0], p[2], p[1], p.lineno)
 
     '''
        value

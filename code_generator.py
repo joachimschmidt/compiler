@@ -2,6 +2,8 @@ import copy
 import math
 
 from compiler_exception import CompilerException
+from jump import Jump
+from loop import Loop
 from register import Register
 from register_utils import *
 from variable import *
@@ -11,6 +13,7 @@ class CodeGenerator:
     def __init__(self, variables):
         self.commands_backup = []
         self.registers_backup = {}
+        self.registers_backup_2 = {}
         self.backup_k = 0
         self.variables = variables
         self.commands = []
@@ -105,7 +108,7 @@ class CodeGenerator:
 
     def set_register_value(self, letter, value):
         cost, method = self.get_cost_and_method_of_set_register_to_value(letter, value)
-        print("Setting {} to {} by {} that costs {}".format(letter, value, method, cost))
+        # print("Setting {} to {} by {} that costs {}".format(letter, value, method, cost))
         register = self.get_register_by_letter(letter)
         ready_code = set_register_to_value(method, letter, value, self.get_all_registers(), register)
         self.k += len(ready_code)
@@ -113,11 +116,21 @@ class CodeGenerator:
         self.remember_register(letter, value)
         return cost
 
-    def set_register_to_number(self, letter, number):
-        cost = self.set_register_value(letter, number.value)
-        if number.is_stored and not number.saved:
-            self.save_to_memory(letter, number)
-        return cost
+    def set_register_to_number(self, letter, number, optimize=False):
+        if not optimize:
+            cost = self.set_register_value(letter, number.value)
+            if number.is_stored and not number.saved:
+                self.save_to_memory(letter, number)
+            return cost
+        else:
+            if number.saved:
+                x, y = self.get_cost_and_method_of_set_register_to_value("a", number.memory_address)
+                cost, method = self.get_cost_and_method_of_set_register_to_value(letter, number.value)
+                if (x + 20) > cost:
+                    return self.set_register_to_number(letter, number)
+                self.get_from_memory(letter, number)
+            else:
+                return self.set_register_to_number(letter, number)
 
     def get_cost_and_method_of_set_register_to_value(self, letter, value, cost_only=False):
         register = self.get_register_by_letter(letter)
@@ -131,27 +144,13 @@ class CodeGenerator:
         self.add_command("HALT")
 
     def c_assign(self, name, line):
-        if isinstance(name, tuple):
-            variable = name[0]
-            if isinstance(variable, Array):
-                variable.occurrences = name[1]
-            else:
-                self.handle_error("Bad variable reference", line)
-        else:
-            variable = self.variables[name]
+        variable = self.prepare_variable(name, line)
         if isinstance(variable, Iterator):
             self.handle_error("Iterator {} modification not allowed".format(name), line)
         self.save_to_memory("b", variable)
 
     def c_write(self, name, line):
-        if isinstance(name, tuple):
-            variable = name[0]
-            if isinstance(variable, Array):
-                variable.occurrences = name[1]
-            else:
-                self.handle_error("Bad variable reference", line)
-        else:
-            variable = self.variables[name]
+        variable = self.prepare_variable(name, line)
         self.check_initialization(variable, line)
         self.set_address(variable)
         if isinstance(variable, Number) and not variable.saved:
@@ -159,14 +158,7 @@ class CodeGenerator:
         self.add_command("PUT a")
 
     def c_read(self, name, line):
-        if isinstance(name, tuple):
-            variable = name[0]
-            if isinstance(variable, Array):
-                variable.occurrences = name[1]
-            else:
-                self.handle_error("Bad variable reference", line)
-        else:
-            variable = self.variables[name]
+        variable = self.prepare_variable(name, line)
         if isinstance(variable, Iterator):
             self.handle_error("Cannot READ to iterator {}".format(name), line)
         self.set_address(variable)
@@ -175,16 +167,23 @@ class CodeGenerator:
             self.variables[name].initialized = True
 
     def c_if(self):
-        pass
+        self.commands[self.jumps[-1].k] += str(self.k - self.jumps[-1].k)
+        self.jumps.pop()
 
     def c_if_else(self):
-        pass
+        self.add_command("JUMP ")
+        self.commands[self.jumps[-1].k] += str(self.k - self.jumps[-1].k)
+        self.jumps.pop()
+        self.jumps.append(Jump(self.k - 1))
 
     def c_while(self):
-        pass
+        self.loops.append(Loop(self.k))
 
     def c_exit_while(self):
-        pass
+        self.add_command("JUMP {}".format(self.loops[-1].k - self.k))
+        self.commands[self.jumps[-1].k] += str(self.k - self.jumps[-1].k)
+        self.jumps.pop()
+        self.loops.pop()
 
     def c_exit_repeat(self):
         pass
@@ -201,15 +200,107 @@ class CodeGenerator:
     def c_exit_for_down_to(self):
         pass
 
-    def e_value(self, name, line):
-        if isinstance(name, tuple):
-            variable = name[0]
-            if isinstance(variable, Array):
-                variable.occurrences = name[1]
+    def conditions(self, name_a, name_b, operation, line):
+        a, b = self.prepare_and_check_initialization(name_a, name_b, line)
+        if isinstance(a, Number) and isinstance(b, Number):
+            if eval("{}{}{}".format(a.value, operation, b.value)):
+                self.set_register_value("e", 1)
             else:
-                self.handle_error("Bad variable reference", line)
+                self.set_register_value("e", 0)
+            self.remember_register("e", 0)
+            self.jumps.append(Jump(self.k))
+            self.add_command("JZERO e ")
         else:
-            variable = self.variables[name]
+            if operation == "=":
+                self.cond_eq(a, b, line)
+            elif operation == "!=":
+                self.cond_neq(a, b, line)
+            elif operation == "<":
+                self.cond_lt(a, b, line)
+            elif operation == ">":
+                self.cond_gt(a, b, line)
+            elif operation == "<=":
+                self.cond_let(a, b, line)
+            elif operation == ">=":
+                self.cond_get(a, b, line)
+            self.forget_register("e")
+
+    def variable_to_register(self, register, variable):
+        if isinstance(variable, Number):
+            self.set_register_to_number(register, variable, optimize=True)
+        else:
+            self.get_from_memory(register, variable)
+
+    def cond_eq(self, a, b, line):
+        self.variable_to_register("b", a)
+        self.variable_to_register("c", b)
+        self.add_command("RESET e")
+        self.add_command("RESET d")
+        self.add_command("ADD d b")
+        self.add_command("SUB d c")
+        self.add_command("JZERO d 2")
+        self.add_command("JUMP 5")
+        self.add_command("SUB c b")
+        self.add_command("JZERO c 2")
+        self.add_command("JUMP 2")
+        self.add_command("INC e")
+        self.jumps.append(Jump(self.k))
+        self.add_command("JZERO e ")
+
+    def cond_neq(self, a, b, line):
+        self.variable_to_register("b", a)
+        self.variable_to_register("c", b)
+        self.add_command("RESET e")
+        self.add_command("RESET d")
+        self.add_command("ADD d b")
+        self.add_command("SUB d c")
+        self.add_command("JZERO d 2")
+        self.add_command("INC e")
+        self.add_command("SUB c b")
+        self.add_command("JZERO c 2")
+        self.add_command("INC e")
+        self.jumps.append(Jump(self.k))
+        self.add_command("JZERO e $checkpoint")
+
+    def cond_lt(self, a, b, line):
+        self.variable_to_register("b", a)
+        self.variable_to_register("e", b)
+        self.add_command("SUB e b")
+        self.jumps.append(Jump(self.k))
+        self.add_command("JZERO e ")
+
+    def cond_gt(self, a, b, line):
+        self.variable_to_register("e", a)
+        self.variable_to_register("b", b)
+        self.add_command("SUB e b")
+        self.jumps.append(Jump(self.k))
+        self.add_command("JZERO e ")
+
+    def cond_let(self, a, b, line):
+        self.variable_to_register("b", a)
+        self.variable_to_register("e", b)
+        self.add_command("INC e")
+        self.add_command("SUB e b")
+        self.jumps.append(Jump(self.k))
+        self.add_command("JZERO e ")
+
+    def cond_get(self, a, b, line):
+        self.variable_to_register("e", a)
+        self.variable_to_register("b", b)
+        self.add_command("INC e")
+        self.add_command("SUB e b")
+        self.jumps.append(Jump(self.k))
+        self.add_command("JZERO e ")
+
+    def prepare_and_check_initialization(self, name_a, name_b, line):
+        a = self.prepare_variable(name_a, line)
+        b = self.prepare_variable(name_b, line)
+        self.check_initialization(a, line)
+        self.check_initialization(b, line)
+        return a, b
+
+    def e_value(self, name, line):
+        variable = self.prepare_variable(name, line)
         self.check_initialization(variable, line)
         if isinstance(variable, Number):
             if not variable.saved:
@@ -225,31 +316,37 @@ class CodeGenerator:
     def forget_register(self, letter):
         self.registers[letter].known_value = False
 
+    def forget_all_registers(self):
+        self.forget_register("a")
+        self.forget_register("b")
+        self.forget_register("c")
+        self.forget_register("d")
+        self.forget_register("e")
+        self.forget_register("f")
+
+    def backup_registers(self):
+        self.registers_backup_2 = copy.deepcopy(self.registers)
+
+    def restore_registers(self):
+        self.registers = copy.deepcopy(self.registers_backup_2)
+
     def remember_register(self, letter, value):
         self.registers[letter].known_value = True
         self.registers[letter].value = value
 
-    def e_operation(self, name_a, name_b, operation, line):
-        if isinstance(name_a, tuple):
-            a = name_a[0]
+    def prepare_variable(self, var, line):
+        if isinstance(var, tuple):
+            a = var[0]
             if isinstance(a, Array):
-                a.occurrences = name_a[1]
+                a.occurrences = var[1]
             else:
                 self.handle_error("Bad variable reference", line)
         else:
-            a = self.variables[name_a]
-        if isinstance(name_b, tuple):
-            b = name_b[0]
-            if isinstance(b, Array):
-                b.occurrences = name_b[1]
-            else:
-                self.handle_error("Bad variable reference", line)
-        else:
-            b = self.variables[name_b]
-        print(a.occurrences)
-        print(b.occurrences)
-        self.check_initialization(a, line)
-        self.check_initialization(b, line)
+            a = self.variables[var]
+        return a
+
+    def e_operation(self, name_a, name_b, operation, line):
+        a, b = self.prepare_and_check_initialization(name_a, name_b, line)
         if operation == "+":
             self.e_add(a, b, line)
         elif operation == "-":
@@ -262,8 +359,6 @@ class CodeGenerator:
             self.e_mod(a, b, line)
 
     def e_add(self, a, b, line):
-        self.check_initialization(a, line)
-        self.check_initialization(b, line)
         if isinstance(a, Number) and isinstance(b, Number):
             self.create_savepoint()
             result = a.value + b.value
@@ -444,8 +539,6 @@ class CodeGenerator:
             self.registers["b"].known_value = False
 
     def e_sub(self, a, b, line):
-        self.check_initialization(a, line)
-        self.check_initialization(b, line)
         if isinstance(a, Number) and isinstance(b, Number):
             self.create_savepoint()
             result = max(0, a.value - b.value)
@@ -550,8 +643,6 @@ class CodeGenerator:
             self.registers["b"].known_value = False
 
     def e_mul(self, a, b, line):
-        self.check_initialization(a, line)
-        self.check_initialization(b, line)
         if isinstance(a, Number) and isinstance(b, Number):
             result = a.value * b.value
             self.set_register_value("b", result)
@@ -613,8 +704,6 @@ class CodeGenerator:
         self.add_command("JUMP -6")
 
     def e_div(self, a, b, line):
-        self.check_initialization(a, line)
-        self.check_initialization(b, line)
         if isinstance(a, Number) and isinstance(b, Number):
             if b.value == 0:
                 result = 0
@@ -677,8 +766,6 @@ class CodeGenerator:
         self.add_command("JZERO f -14")
 
     def e_mod(self, a, b, line):
-        self.check_initialization(a, line)
-        self.check_initialization(b, line)
         if isinstance(a, Number) and isinstance(b, Number):
             if b.value == 0:
                 result = 0
