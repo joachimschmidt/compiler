@@ -160,13 +160,11 @@ class CompilerParser(Parser):
 
     @_('PIDENTIFIER LEFTBRACKET PIDENTIFIER RIGHTBRACKET')
     def identifier(self, p):
-        self.generator.check_array_reference_by_identifier(p[0], p[2], p.lineno)
-        return p.PIDENTIFIER
+        return self.generator.check_array_reference_by_identifier(p[0], p[2], p.lineno)
 
     @_('PIDENTIFIER LEFTBRACKET NUMBER RIGHTBRACKET')
     def identifier(self, p):
-        self.generator.check_array_reference_by_number(p[0], p[2], p.lineno)
-        return p.PIDENTIFIER
+        return self.generator.check_array_reference_by_number(p[0], p[2], p.lineno)
 
     def error(self, token):
         raise CompilerException("Syntax error in grammar", token.lineno)
