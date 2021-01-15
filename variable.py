@@ -23,6 +23,8 @@ class Number(Variable):
 class Iterator(Variable):
     def __init__(self, name, memory_address):
         self.in_use = False
+        self.end = None
+        self.start = None
         super().__init__(name, memory_address)
 
 

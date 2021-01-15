@@ -64,15 +64,19 @@ class CompilerParser(Parser):
     def command(self, p):
         self.generator.c_assign(p[0], p.lineno)
 
-    @_('IF condition THEN commands ELSE begin_else_if commands ENDIF')
+    @_('IF begin_if condition THEN commands ELSE begin_else_if commands ENDIF')
     def command(self, p):
         self.generator.c_if()
+
+    @_('')
+    def begin_if(self, p):
+        self.generator.c_begin_if()
 
     @_('')
     def begin_else_if(self, p):
         self.generator.c_if_else()
 
-    @_('IF condition THEN commands ENDIF')
+    @_('IF begin_if condition THEN commands ENDIF')
     def command(self, p):
         self.generator.c_if()
 

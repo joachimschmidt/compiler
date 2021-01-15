@@ -83,6 +83,7 @@ class CodeGenerator:
                 self.forget_register("a")
                 self.set_register_value("e", variable.start)
                 self.add_command("SUB a e")
+                self.forget_register("a")
 
     def save_to_memory(self, register, variable):
         self.set_address(variable)
@@ -166,18 +167,24 @@ class CodeGenerator:
         if not isinstance(variable, Array):
             self.variables[name].initialized = True
 
+    def c_begin_if(self):
+        self.backup_registers()
+
     def c_if(self):
         self.commands[self.jumps[-1].k] += str(self.k - self.jumps[-1].k)
         self.jumps.pop()
+        self.forget_all_registers()
 
     def c_if_else(self):
         self.add_command("JUMP ")
+        self.restore_registers()
         self.commands[self.jumps[-1].k] += str(self.k - self.jumps[-1].k)
         self.jumps.pop()
         self.jumps.append(Jump(self.k - 1))
 
     def c_while(self):
         self.loops.append(Loop(self.k))
+        self.forget_all_registers()
 
     def c_exit_while(self):
         self.add_command("JUMP {}".format(self.loops[-1].k - self.k))
@@ -186,10 +193,28 @@ class CodeGenerator:
         self.loops.pop()
 
     def c_exit_repeat(self):
-        pass
+        self.commands.pop()
+        self.jumps.pop()
+        self.add_command("JZERO e 2")
+        self.add_command("JUMP 2")
+        self.add_command("JUMP {}".format(self.loops[-1].k - self.k))
+        self.loops.pop()
+
+    def prepare_iterator(self, iterator, start, end, line):
+        i = self.variables[iterator]
+        if isinstance(i, Iterator):
+            if i.in_use:
+                self.handle_error("Iterator {} repeated ".format(iterator), line)
+            else:
+                i.start = self.variables[start]
+                i.end = self.variables[end]
+                return i
+        else:
+            self.handle_error("Repeated declaration of {}".format(iterator), line)
 
     def c_for_to(self, iterator, start, end, line):
-        pass
+        i = self.prepare_iterator(iterator, start, end, line)
+
 
     def c_for_down_to(self, iterator, start, end, line):
         pass
@@ -246,6 +271,10 @@ class CodeGenerator:
         self.add_command("INC e")
         self.jumps.append(Jump(self.k))
         self.add_command("JZERO e ")
+        self.forget_register("b")
+        self.forget_register("c")
+        self.forget_register("d")
+        self.forget_register("e")
 
     def cond_neq(self, a, b, line):
         self.variable_to_register("b", a)
@@ -260,7 +289,11 @@ class CodeGenerator:
         self.add_command("JZERO c 2")
         self.add_command("INC e")
         self.jumps.append(Jump(self.k))
-        self.add_command("JZERO e $checkpoint")
+        self.add_command("JZERO e ")
+        self.forget_register("b")
+        self.forget_register("c")
+        self.forget_register("d")
+        self.forget_register("e")
 
     def cond_lt(self, a, b, line):
         self.variable_to_register("b", a)
@@ -268,6 +301,8 @@ class CodeGenerator:
         self.add_command("SUB e b")
         self.jumps.append(Jump(self.k))
         self.add_command("JZERO e ")
+        self.forget_register("b")
+        self.forget_register("e")
 
     def cond_gt(self, a, b, line):
         self.variable_to_register("e", a)
@@ -275,6 +310,8 @@ class CodeGenerator:
         self.add_command("SUB e b")
         self.jumps.append(Jump(self.k))
         self.add_command("JZERO e ")
+        self.forget_register("b")
+        self.forget_register("e")
 
     def cond_let(self, a, b, line):
         self.variable_to_register("b", a)
@@ -283,6 +320,8 @@ class CodeGenerator:
         self.add_command("SUB e b")
         self.jumps.append(Jump(self.k))
         self.add_command("JZERO e ")
+        self.forget_register("b")
+        self.forget_register("e")
 
     def cond_get(self, a, b, line):
         self.variable_to_register("e", a)
@@ -291,6 +330,8 @@ class CodeGenerator:
         self.add_command("SUB e b")
         self.jumps.append(Jump(self.k))
         self.add_command("JZERO e ")
+        self.forget_register("b")
+        self.forget_register("e")
 
     def prepare_and_check_initialization(self, name_a, name_b, line):
         a = self.prepare_variable(name_a, line)
@@ -408,7 +449,6 @@ class CodeGenerator:
                     else:
                         self.get_from_memory("b", b)
                         self.set_register_to_number("c", a)
-                    self.registers["b"].value = result
                     self.add_command("ADD b c")
             elif a.saved:
                 cost_alt3 = self.set_register_value("a", a.memory_address)
@@ -428,7 +468,6 @@ class CodeGenerator:
                     else:
                         self.get_from_memory("b", a)
                         self.set_register_to_number("c", b)
-                    self.registers["b"].value = result
                     self.add_command("ADD b c")
             elif b.saved:
                 cost_alt3 = self.set_register_value("a", b.memory_address)
@@ -448,7 +487,6 @@ class CodeGenerator:
                     else:
                         self.get_from_memory("b", b)
                         self.set_register_to_number("c", a)
-                    self.registers["b"].value = result
                     self.add_command("ADD b c")
             else:
                 if cost_const < cost_alt1 and cost_const < cost_alt2:
@@ -460,9 +498,8 @@ class CodeGenerator:
                     else:
                         self.set_register_to_number("b", b)
                         self.set_register_to_number("c", a)
-                    self.registers["b"].value = result
                     self.add_command("ADD b c")
-
+            self.remember_register("b", result)
         elif isinstance(a, Number):
             self.create_savepoint()
             const1 = self.set_register_value("a", b.memory_address)
@@ -490,7 +527,7 @@ class CodeGenerator:
                 self.get_from_memory("b", b)
                 for x in range(a.value):
                     self.add_command("INC b")
-            self.registers["b"].known_value = False
+            self.forget_register("b")
         elif isinstance(b, Number):
             self.create_savepoint()
             const1 = self.set_register_value("a", a.memory_address)
@@ -518,7 +555,7 @@ class CodeGenerator:
                 self.get_from_memory("b", a)
                 for x in range(b.value):
                     self.add_command("INC b")
-            self.registers["b"].known_value = False
+            self.forget_register("b")
         else:
             self.create_savepoint()
             cost1 = self.set_register_value("a", a.memory_address)
@@ -536,7 +573,7 @@ class CodeGenerator:
                 self.get_from_memory("b", b)
                 self.get_from_memory("c", a)
             self.add_command("ADD b c")
-            self.registers["b"].known_value = False
+            self.forget_register("b")
 
     def e_sub(self, a, b, line):
         if isinstance(a, Number) and isinstance(b, Number):
@@ -581,7 +618,6 @@ class CodeGenerator:
                     else:
                         self.get_from_memory("c", b)
                         self.set_register_to_number("b", a)
-                    self.registers["b"].value = result
                     self.add_command("SUB b c")
             elif a.saved:
                 cost_alt3 = self.set_register_value("a", a.memory_address)
@@ -598,7 +634,6 @@ class CodeGenerator:
                     else:
                         self.get_from_memory("b", a)
                         self.set_register_to_number("c", b)
-                    self.registers["b"].value = result
                     self.add_command("SUB b c")
             elif b.saved:
                 cost_alt3 = self.set_register_value("a", b.memory_address)
@@ -615,7 +650,6 @@ class CodeGenerator:
                     else:
                         self.get_from_memory("c", b)
                         self.set_register_to_number("b", a)
-                    self.registers["b"].value = result
                     self.add_command("SUB b c")
             else:
                 if cost_const < cost_alt1:
@@ -623,24 +657,23 @@ class CodeGenerator:
                 else:
                     self.set_register_to_number("b", a)
                     self.set_register_to_number("c", b)
-                    self.registers["b"].value = result
                     self.add_command("SUB b c")
-
+            self.remember_register("b", result)
         elif isinstance(a, Number):
             self.get_from_memory("c", b)
             self.set_register_to_number("b", a)
             self.add_command("SUB b c")
-            self.registers["b"].known_value = False
+            self.forget_register("b")
         elif isinstance(b, Number):
             self.get_from_memory("b", a)
             self.set_register_to_number("c", b)
             self.add_command("SUB b c")
-            self.registers["b"].known_value = False
+            self.forget_register("b")
         else:
             self.get_from_memory("b", a)
             self.get_from_memory("c", b)
             self.add_command("SUB b c")
-            self.registers["b"].known_value = False
+            self.forget_register("b")
 
     def e_mul(self, a, b, line):
         if isinstance(a, Number) and isinstance(b, Number):
@@ -659,6 +692,7 @@ class CodeGenerator:
                 self.get_from_memory("b", b)
                 for i in range(power):
                     self.add_command("SHL b")
+                self.forget_register("b")
                 return
             else:
                 self.get_from_memory("d", b)
@@ -675,6 +709,7 @@ class CodeGenerator:
                 self.get_from_memory("b", a)
                 for i in range(power):
                     self.add_command("SHL b")
+                self.forget_register("b")
                 return
             else:
                 self.get_from_memory("c", a)
@@ -702,6 +737,9 @@ class CodeGenerator:
         self.add_command("SHR d")
         self.add_command("JZERO d 2")
         self.add_command("JUMP -6")
+        self.forget_register("b")
+        self.forget_register("c")
+        self.forget_register("d")
 
     def e_div(self, a, b, line):
         if isinstance(a, Number) and isinstance(b, Number):
@@ -739,31 +777,7 @@ class CodeGenerator:
             self.get_from_memory("c", b)
         self.add_command("RESET b")
         self.add_command("JZERO c 26")
-        self.add_command("RESET e")
-        self.add_command("ADD e c")
-        self.add_command("RESET b")
-        self.add_command("ADD b e")
-        self.add_command("SUB b d")
-        self.add_command("JZERO b 2")
-        self.add_command("JUMP 3")
-        self.add_command("SHL e")
-        self.add_command("JUMP -6")
-        self.add_command("RESET b")
-        self.add_command("RESET f")
-        self.add_command("ADD f e")
-        self.add_command("SUB f d")
-        self.add_command("JZERO f 4")
-        self.add_command("SHL b")
-        self.add_command("SHR e")
-        self.add_command("JUMP 5")
-        self.add_command("SHL b")
-        self.add_command("INC b")
-        self.add_command("SUB d e")
-        self.add_command("SHR e")
-        self.add_command("RESET f")
-        self.add_command("ADD f c")
-        self.add_command("SUB f e")
-        self.add_command("JZERO f -14")
+        self.insert_div_code()
 
     def e_mod(self, a, b, line):
         if isinstance(a, Number) and isinstance(b, Number):
@@ -790,8 +804,14 @@ class CodeGenerator:
         else:
             self.get_from_memory("d", a)
             self.get_from_memory("c", b)
-        self.add_command("JZERO c 28")
-        self.add_command("JZERO c 26")
+        self.add_command("JZERO c 27")
+        self.insert_div_code()
+        self.add_command("JUMP 2")
+        self.add_command("RESET d")
+        self.add_command("RESET b")
+        self.add_command("ADD b d")
+
+    def insert_div_code(self):
         self.add_command("RESET e")
         self.add_command("ADD e c")
         self.add_command("RESET b")
@@ -817,10 +837,11 @@ class CodeGenerator:
         self.add_command("ADD f c")
         self.add_command("SUB f e")
         self.add_command("JZERO f -14")
-        self.add_command("JUMP 2")
-        self.add_command("RESET d")
-        self.add_command("RESET b")
-        self.add_command("ADD b d")
+        self.forget_register("b")
+        self.forget_register("c")
+        self.forget_register("d")
+        self.forget_register("e")
+        self.forget_register("f")
 
     def create_savepoint(self):
         self.backup_k = self.k
