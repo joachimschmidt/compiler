@@ -9,22 +9,23 @@ class CompilerPreParser(Parser):
     tokens = CompilerLexer.tokens
     variables = {}
 
-    def declare_variable(self, name):
+    def declare_variable(self, name, line):
         if name in self.variables.keys():
-            raise Exception("{} already defined".format(name))
+            raise CompilerException("{} already defined".format(name), line)
         new_variable = Identifier(name, None)
         self.variables[name] = new_variable
 
-    def declare_iterator(self, name):
+    def declare_iterator(self, name, line):
         if name in self.variables.keys() and not isinstance(self.variables[name], Iterator):
-            raise Exception("{} cannot be used as an iterator. Iterator is local for each loop".format(name))
+            raise CompilerException("{} cannot be used as an iterator. Iterator is local for each loop".format(name),
+                                    line)
         if name not in self.variables.keys():
             new_variable = Iterator(name, None)
             self.variables[name] = new_variable
 
-    def count_variable(self, variable):
+    def count_variable(self, variable, line):
         if variable not in self.variables.keys():
-            raise Exception("{} not declared".format(variable))
+            raise CompilerException("{} not declared".format(variable), line)
         elif not isinstance(self.variables[variable], Iterator):
             self.variables[variable].occurrences += 1
 
@@ -60,7 +61,7 @@ class CompilerPreParser(Parser):
 
     @_('declarations COMMA PIDENTIFIER')
     def declarations(self, p):
-        self.declare_variable(p[2])
+        self.declare_variable(p[2], p.lineno)
 
     @_('declarations COMMA PIDENTIFIER LEFTBRACKET NUMBER COLON NUMBER RIGHTBRACKET')
     def declarations(self, p):
@@ -68,7 +69,7 @@ class CompilerPreParser(Parser):
 
     @_('PIDENTIFIER')
     def declarations(self, p):
-        self.declare_variable(p[0])
+        self.declare_variable(p[0], p.lineno)
 
     @_('PIDENTIFIER LEFTBRACKET NUMBER COLON NUMBER RIGHTBRACKET')
     def declarations(self, p):
@@ -124,7 +125,7 @@ class CompilerPreParser(Parser):
 
     @_('')
     def begin_for_to(self, p):
-        self.declare_iterator(p[-6])
+        self.declare_iterator(p[-6], -1)
 
     @_('FOR PIDENTIFIER FROM value DOWNTO value DO begin_for_downto commands ENDFOR')
     def command(self, p):
@@ -132,7 +133,7 @@ class CompilerPreParser(Parser):
 
     @_('')
     def begin_for_downto(self, p):
-        self.declare_iterator(p[-6])
+        self.declare_iterator(p[-6], -1)
 
     @_('READ identifier SEMICOLON')
     def command(self, p):
@@ -187,17 +188,17 @@ class CompilerPreParser(Parser):
 
     @_('PIDENTIFIER')
     def identifier(self, p):
-        self.count_variable(p[0])
+        self.count_variable(p[0], p.lineno)
         return self.variables[p[0]]
 
     @_('PIDENTIFIER LEFTBRACKET PIDENTIFIER RIGHTBRACKET')
     def identifier(self, p):
-        self.count_variable(p[0])
-        self.count_variable(p[2])
+        self.count_variable(p[0], p.lineno)
+        self.count_variable(p[2], p.lineno)
 
     @_('PIDENTIFIER LEFTBRACKET NUMBER RIGHTBRACKET')
     def identifier(self, p):
-        self.count_variable(p[0])
+        self.count_variable(p[0], p.lineno)
 
     def error(self, token):
         if token is not None:

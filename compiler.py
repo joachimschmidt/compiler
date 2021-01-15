@@ -33,7 +33,7 @@ if __name__ == '__main__':
             variables = pre_parser.parse(pre_parse_ready)
             variable_prepare = VariablePrepare(variables)
             optimized_variables = variable_prepare.get_optimized_variables()
-            #variable_prepare.print_variables()
+            variable_prepare.print_variables()
             generator = CodeGenerator(optimized_variables)
             parser = CompilerParser(generator)
             parser.parse(parse_ready)

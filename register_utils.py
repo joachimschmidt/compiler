@@ -167,7 +167,7 @@ def get_set_register_best_method(reg, value, all_register):
             min_cost = 0
             current_method = "nothing"
     for register in all_register:
-        if register.letter != reg.letter:
+        if register.letter != reg.letter and register.value < value:
             base_and_add = cost_of_set_by_add_to_base(value, register.value)
             if base_and_add < min_cost:
                 min_cost = base_and_add

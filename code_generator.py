@@ -10,9 +10,10 @@ from variable import *
 
 
 class CodeGenerator:
-    def __init__(self, variables, index_of_memory):
+    def __init__(self, variables):
         self.commands_backup = []
         self.registers_backup = {}
+        self.variables_backup = {}
         self.registers_backup_2 = {}
         self.backup_k = 0
         self.variables = variables
@@ -109,7 +110,7 @@ class CodeGenerator:
 
     def set_register_value(self, letter, value):
         cost, method = self.get_cost_and_method_of_set_register_to_value(letter, value)
-        # print("Setting {} to {} by {} that costs {}".format(letter, value, method, cost))
+        print("Setting {} to {} by {} that costs {}".format(letter, value, method, cost))
         register = self.get_register_by_letter(letter)
         ready_code = set_register_to_value(method, letter, value, self.get_all_registers(), register)
         self.k += len(ready_code)
@@ -223,7 +224,10 @@ class CodeGenerator:
                 if isinstance(i.end, Number):
                     cost = self.get_cost_and_method_of_set_register_to_value("a", i.end.memory_address, cost_only=True)
                     cost += 20
+                    self.backup_registers()
+                    self.forget_all_registers()
                     cost2 = self.get_cost_and_method_of_set_register_to_value("c", i.end.value, cost_only=True)
+                    self.restore_registers()
                     if cost < cost2:
                         self.save_to_memory("f", i)
                         self.save_to_memory("c", i.end, iterator_end=True)
@@ -377,7 +381,9 @@ class CodeGenerator:
 
     def cond_lt(self, a, b, line):
         self.variable_to_register("b", a)
-        self.variable_to_register("e", b)
+        self.variable_to_register("c", b)
+        self.add_command("RESET e")
+        self.add_command("ADD e c")
         self.add_command("SUB e b")
         self.jumps.append(Jump(self.k))
         self.add_command("JZERO e ")
@@ -385,8 +391,10 @@ class CodeGenerator:
         self.forget_register("e")
 
     def cond_gt(self, a, b, line):
-        self.variable_to_register("e", a)
+        self.variable_to_register("c", a)
         self.variable_to_register("b", b)
+        self.add_command("RESET e")
+        self.add_command("ADD e c")
         self.add_command("SUB e b")
         self.jumps.append(Jump(self.k))
         self.add_command("JZERO e ")
@@ -395,7 +403,9 @@ class CodeGenerator:
 
     def cond_let(self, a, b, line):
         self.variable_to_register("b", a)
-        self.variable_to_register("e", b)
+        self.variable_to_register("c", b)
+        self.add_command("RESET e")
+        self.add_command("ADD e c")
         self.add_command("INC e")
         self.add_command("SUB e b")
         self.jumps.append(Jump(self.k))
@@ -404,8 +414,10 @@ class CodeGenerator:
         self.forget_register("e")
 
     def cond_get(self, a, b, line):
-        self.variable_to_register("e", a)
+        self.variable_to_register("c", a)
         self.variable_to_register("b", b)
+        self.add_command("RESET e")
+        self.add_command("ADD e c")
         self.add_command("INC e")
         self.add_command("SUB e b")
         self.jumps.append(Jump(self.k))
@@ -433,6 +445,10 @@ class CodeGenerator:
         if isinstance(variable, Identifier):
             if not variable.initialized:
                 self.handle_error("Variable {} not initialized".format(variable.name), line)
+        if isinstance(variable, Iterator):
+            if not variable.in_use:
+                self.handle_error(
+                    "Variable {} was an iterator but this reference is outside the loop".format(variable.name), line)
 
     def forget_register(self, letter):
         self.registers[letter].known_value = False
@@ -511,19 +527,19 @@ class CodeGenerator:
                 cost_alt5 += self.set_register_to_number("c", a)
                 cost_alt5 += 25
                 self.load_savepoint()
-                if cost_const < cost_alt1 and cost_const < cost_alt2 and cost_const < cost_alt3 and cost_const < cost_alt4 and cost_const < cost_alt5:
+                if cost_const <= cost_alt1 and cost_const <= cost_alt2 and cost_const <= cost_alt3 and cost_const <= cost_alt4 and cost_const <= cost_alt5:
                     self.set_register_value("b", result)
                 else:
-                    if cost_alt1 < cost_alt2 and cost_alt1 < cost_alt3 and cost_alt1 < cost_alt4 and cost_alt1 < cost_alt5:
+                    if cost_alt1 <= cost_alt2 and cost_alt1 <= cost_alt3 and cost_alt1 <= cost_alt4 and cost_alt1 <= cost_alt5:
                         self.set_register_to_number("b", a)
                         self.set_register_to_number("c", b)
-                    elif cost_alt2 < cost_alt1 and cost_alt2 < cost_alt3 and cost_alt2 < cost_alt4 and cost_alt2 < cost_alt5:
+                    elif cost_alt2 <= cost_alt1 and cost_alt2 <= cost_alt3 and cost_alt2 <= cost_alt4 and cost_alt2 <= cost_alt5:
                         self.set_register_to_number("b", b)
                         self.set_register_to_number("c", a)
-                    elif cost_alt3 < cost_alt1 and cost_alt3 < cost_alt2 and cost_alt3 < cost_alt4 and cost_alt3 < cost_alt5:
+                    elif cost_alt3 <= cost_alt1 and cost_alt3 <= cost_alt2 and cost_alt3 <= cost_alt4 and cost_alt3 <= cost_alt5:
                         self.get_from_memory("b", a)
                         self.get_from_memory("c", b)
-                    elif cost_alt4 < cost_alt1 and cost_alt4 < cost_alt2 and cost_alt4 < cost_alt3 and cost_alt4 < cost_alt5:
+                    elif cost_alt4 <= cost_alt1 and cost_alt4 <= cost_alt2 and cost_alt4 <= cost_alt3 and cost_alt4 <= cost_alt5:
                         self.get_from_memory("b", a)
                         self.set_register_to_number("c", b)
                     else:
@@ -536,13 +552,13 @@ class CodeGenerator:
                 cost_alt3 += self.set_register_to_number("b", b)
                 cost_alt3 += 25
                 self.load_savepoint()
-                if cost_const < cost_alt1 and cost_const < cost_alt2 and cost_const < cost_alt3:
+                if cost_const <= cost_alt1 and cost_const <= cost_alt2 and cost_const <= cost_alt3:
                     self.set_register_value("b", result)
                 else:
-                    if cost_alt1 < cost_alt2 and cost_alt1 < cost_alt3:
+                    if cost_alt1 <= cost_alt2 and cost_alt1 <= cost_alt3:
                         self.set_register_to_number("b", a)
                         self.set_register_to_number("c", b)
-                    elif cost_alt2 < cost_alt1 and cost_alt2 < cost_alt3:
+                    elif cost_alt2 <= cost_alt1 and cost_alt2 <= cost_alt3:
                         self.set_register_to_number("b", b)
                         self.set_register_to_number("c", a)
                     else:
@@ -555,13 +571,13 @@ class CodeGenerator:
                 cost_alt3 += self.set_register_to_number("c", a)
                 cost_alt3 += 25
                 self.load_savepoint()
-                if cost_const < cost_alt1 and cost_const < cost_alt2 and cost_const < cost_alt3:
+                if cost_const <= cost_alt1 and cost_const <= cost_alt2 and cost_const <= cost_alt3:
                     self.set_register_value("b", result)
                 else:
-                    if cost_alt1 < cost_alt2 and cost_alt1 < cost_alt3:
+                    if cost_alt1 <= cost_alt2 and cost_alt1 <= cost_alt3:
                         self.set_register_to_number("b", a)
                         self.set_register_to_number("c", b)
-                    elif cost_alt2 < cost_alt1 and cost_alt2 < cost_alt3:
+                    elif cost_alt2 <= cost_alt1 and cost_alt2 <= cost_alt3:
                         self.set_register_to_number("b", b)
                         self.set_register_to_number("c", a)
                     else:
@@ -569,10 +585,10 @@ class CodeGenerator:
                         self.set_register_to_number("c", a)
                     self.add_command("ADD b c")
             else:
-                if cost_const < cost_alt1 and cost_const < cost_alt2:
+                if cost_const <= cost_alt1 and cost_const <= cost_alt2:
                     self.set_register_value("b", result)
                 else:
-                    if cost_alt1 < cost_alt2:
+                    if cost_alt1 <= cost_alt2:
                         self.set_register_to_number("b", a)
                         self.set_register_to_number("c", b)
                     else:
@@ -595,11 +611,11 @@ class CodeGenerator:
             alt1 = self.set_register_value("a", b.memory_address)
             alt1 += 20 + a.value
             self.load_savepoint()
-            if const1 < const2 and const1 < alt1:
+            if const1 <= const2 and const1 <= alt1:
                 self.get_from_memory("b", b)
                 self.set_register_to_number("c", a)
                 self.add_command("ADD b c")
-            elif const2 < const1 and const2 < alt1:
+            elif const2 <= const1 and const2 <= alt1:
                 self.get_from_memory("c", b)
                 self.set_register_to_number("b", a)
                 self.add_command("ADD b c")
@@ -623,11 +639,11 @@ class CodeGenerator:
             alt1 = self.set_register_value("a", a.memory_address)
             alt1 += 20 + b.value
             self.load_savepoint()
-            if const1 < const2 and const1 < alt1:
+            if const1 <= const2 and const1 <= alt1:
                 self.get_from_memory("b", a)
                 self.set_register_to_number("c", b)
                 self.add_command("ADD b c")
-            elif const2 < const1 and const2 < alt1:
+            elif const2 <= const1 and const2 <= alt1:
                 self.get_from_memory("c", a)
                 self.set_register_to_number("b", b)
                 self.add_command("ADD b c")
@@ -646,7 +662,7 @@ class CodeGenerator:
             cost2 += self.set_register_value("a", a.memory_address)
             cost2 += 5
             self.load_savepoint()
-            if cost1 < cost2:
+            if cost1 <= cost2:
                 self.get_from_memory("b", a)
                 self.get_from_memory("c", b)
             else:
@@ -683,16 +699,16 @@ class CodeGenerator:
                 cost_alt5 += self.set_register_to_number("b", a)
                 cost_alt5 += 25
                 self.load_savepoint()
-                if cost_const < cost_alt1 and cost_const < cost_alt3 and cost_const < cost_alt4 and cost_const < cost_alt5:
+                if cost_const <= cost_alt1 and cost_const <= cost_alt3 and cost_const <= cost_alt4 and cost_const <= cost_alt5:
                     self.set_register_value("b", result)
                 else:
-                    if cost_alt1 < cost_alt3 and cost_alt1 < cost_alt4 and cost_alt1 < cost_alt5:
+                    if cost_alt1 <= cost_alt3 and cost_alt1 <= cost_alt4 and cost_alt1 <= cost_alt5:
                         self.set_register_to_number("b", a)
                         self.set_register_to_number("c", b)
-                    elif cost_alt3 < cost_alt1 and cost_alt3 < cost_alt4 and cost_alt3 < cost_alt5:
+                    elif cost_alt3 <= cost_alt1 and cost_alt3 <= cost_alt4 and cost_alt3 <= cost_alt5:
                         self.get_from_memory("b", a)
                         self.get_from_memory("c", b)
-                    elif cost_alt4 < cost_alt1 and cost_alt4 < cost_alt3 and cost_alt4 < cost_alt5:
+                    elif cost_alt4 <= cost_alt1 and cost_alt4 <= cost_alt3 and cost_alt4 <= cost_alt5:
                         self.get_from_memory("b", a)
                         self.set_register_to_number("c", b)
                     else:
@@ -705,10 +721,10 @@ class CodeGenerator:
                 cost_alt3 += self.set_register_to_number("b", b)
                 cost_alt3 += 25
                 self.load_savepoint()
-                if cost_const < cost_alt1 and cost_const < cost_alt3:
+                if cost_const <= cost_alt1 and cost_const <= cost_alt3:
                     self.set_register_value("b", result)
                 else:
-                    if cost_alt1 < cost_alt3:
+                    if cost_alt1 <= cost_alt3:
                         self.set_register_to_number("b", a)
                         self.set_register_to_number("c", b)
                     else:
@@ -721,10 +737,10 @@ class CodeGenerator:
                 cost_alt3 += self.set_register_to_number("b", a)
                 cost_alt3 += 25
                 self.load_savepoint()
-                if cost_const < cost_alt1 and cost_const < cost_alt3:
+                if cost_const <= cost_alt1 and cost_const <= cost_alt3:
                     self.set_register_value("b", result)
                 else:
-                    if cost_alt1 < cost_alt3:
+                    if cost_alt1 <= cost_alt3:
                         self.set_register_to_number("b", a)
                         self.set_register_to_number("c", b)
                     else:
@@ -732,7 +748,7 @@ class CodeGenerator:
                         self.set_register_to_number("b", a)
                     self.add_command("SUB b c")
             else:
-                if cost_const < cost_alt1:
+                if cost_const <= cost_alt1:
                     self.set_register_value("b", result)
                 else:
                     self.set_register_to_number("b", a)
@@ -927,8 +943,10 @@ class CodeGenerator:
         self.backup_k = self.k
         self.commands_backup = copy.deepcopy(self.commands)
         self.registers_backup = copy.deepcopy(self.registers)
+        self.variables_backup = copy.deepcopy(self.variables)
 
     def load_savepoint(self):
         self.registers = copy.deepcopy(self.registers_backup)
         self.commands = copy.deepcopy(self.commands_backup)
+        self.variables = copy.deepcopy(self.variables_backup)
         self.k = self.backup_k
