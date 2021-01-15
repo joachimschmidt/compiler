@@ -64,7 +64,7 @@ class CompilerParser(Parser):
     def command(self, p):
         self.generator.c_assign(p[0], p.lineno)
 
-    @_('IF begin_if condition THEN commands ELSE begin_else_if commands ENDIF')
+    @_('IF condition begin_if THEN commands ELSE begin_else_if commands ENDIF')
     def command(self, p):
         self.generator.c_if()
 
@@ -76,7 +76,7 @@ class CompilerParser(Parser):
     def begin_else_if(self, p):
         self.generator.c_if_else()
 
-    @_('IF begin_if condition THEN commands ENDIF')
+    @_('IF condition begin_if THEN commands ENDIF')
     def command(self, p):
         self.generator.c_if()
 
@@ -98,7 +98,8 @@ class CompilerParser(Parser):
 
     @_('')
     def begin_for_to(self, p):
-        self.generator.c_for_to(p[-6], p[-4], p[-2], p.lineno)
+        print("FOR {} FROM {} TO {}".format(p[-6], p[-4], p[-2]))
+        self.generator.c_for_to(p[-6], p[-4], p[-2], 0)
 
     @_('FOR PIDENTIFIER FROM value DOWNTO value DO begin_for_down_to commands ENDFOR')
     def command(self, p):
@@ -106,7 +107,7 @@ class CompilerParser(Parser):
 
     @_('')
     def begin_for_down_to(self, p):
-        self.generator.c_for_to(p[-6], p[-4], p[-2], p.lineno)
+        self.generator.c_for_down_to(p[-6], p[-4], p[-2], 0)
 
     @_('READ identifier SEMICOLON')
     def command(self, p):

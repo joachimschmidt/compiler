@@ -10,7 +10,7 @@ from variable import *
 
 
 class CodeGenerator:
-    def __init__(self, variables):
+    def __init__(self, variables, index_of_memory):
         self.commands_backup = []
         self.registers_backup = {}
         self.registers_backup_2 = {}
@@ -85,10 +85,10 @@ class CodeGenerator:
                 self.add_command("SUB a e")
                 self.forget_register("a")
 
-    def save_to_memory(self, register, variable):
+    def save_to_memory(self, register, variable, iterator_end=False):
         self.set_address(variable)
         self.add_command("STORE {} {}".format(register, "a"))
-        if isinstance(variable, Number):
+        if isinstance(variable, Number) and not iterator_end:
             self.variables[variable.name].saved = True
         elif isinstance(variable, Identifier):
             self.variables[variable.name].initialized = True
@@ -191,14 +191,17 @@ class CodeGenerator:
         self.commands[self.jumps[-1].k] += str(self.k - self.jumps[-1].k)
         self.jumps.pop()
         self.loops.pop()
+        self.forget_all_registers()
 
     def c_exit_repeat(self):
         self.commands.pop()
+        self.k -= 1
         self.jumps.pop()
         self.add_command("JZERO e 2")
         self.add_command("JUMP 2")
         self.add_command("JUMP {}".format(self.loops[-1].k - self.k))
         self.loops.pop()
+        self.forget_all_registers()
 
     def prepare_iterator(self, iterator, start, end, line):
         i = self.variables[iterator]
@@ -206,23 +209,100 @@ class CodeGenerator:
             if i.in_use:
                 self.handle_error("Iterator {} repeated ".format(iterator), line)
             else:
-                i.start = self.variables[start]
-                i.end = self.variables[end]
+                start_variable = self.prepare_variable(start, line)
+                end_variable = self.prepare_variable(end, line)
+                self.check_initialization(start_variable, line)
+                self.check_initialization(end_variable, line)
+                i.start = start_variable
+                i.end = end_variable
+                i.in_use = True
+                self.variable_to_register("f", i.start)
+                self.variable_to_register("c", i.end)
+                i.end = copy.deepcopy(i.end)
+                i.end.memory_address = i.memory_address + 1
+                if isinstance(i.end, Number):
+                    cost = self.get_cost_and_method_of_set_register_to_value("a", i.end.memory_address, cost_only=True)
+                    cost += 20
+                    cost2 = self.get_cost_and_method_of_set_register_to_value("c", i.end.value, cost_only=True)
+                    if cost < cost2:
+                        self.save_to_memory("f", i)
+                        self.save_to_memory("c", i.end, iterator_end=True)
+                        i.end.is_stored = True
+                        i.end.saved = True
+                    else:
+                        self.save_to_memory("f", i)
+                        i.end.is_stored = False
+                        i.end.saved = False
+                else:
+                    self.save_to_memory("f", i)
+                    self.save_to_memory("c", i.end)
+                self.loops.append(Loop(self.k, i))
                 return i
         else:
             self.handle_error("Repeated declaration of {}".format(iterator), line)
 
-    def c_for_to(self, iterator, start, end, line):
-        i = self.prepare_iterator(iterator, start, end, line)
+    def dismiss_iterator(self, i):
+        self.variables[i.name].in_use = False
 
+    def c_for_to(self, iterator, start, end, line):
+        self.prepare_iterator(iterator, start, end, line)
+        self.add_command("INC c")
+        self.add_command("SUB c f")
+        self.jumps.append(Jump(self.k))
+        self.add_command("JZERO c ")
+        self.forget_all_registers()
 
     def c_for_down_to(self, iterator, start, end, line):
-        pass
+        self.prepare_iterator(iterator, start, end, line)
+        self.add_command("INC f")
+        self.add_command("SUB f c")
+        self.jumps.append(Jump(self.k))
+        self.add_command("JZERO f ")
+        self.forget_all_registers()
 
     def c_exit_for_to(self):
-        pass
+        i = self.loops[-1].iterator
+        self.variable_to_register("f", i)
+        self.variable_to_register("c", i.end)
+        self.add_command("INC f")
+        self.add_command("INC c")
+        self.add_command("SUB c f")
+        self.jumps.append(Jump(self.k))
+        self.add_command("JZERO c ")
+        self.save_to_memory("f", i)
+        self.add_command("JUMP {}".format(self.jumps[-2].k - self.k + 1))
+        self.commands[self.jumps[-1].k] += str(self.k - self.jumps[-1].k)
+        self.jumps.pop()
+        self.commands[self.jumps[-1].k] += str(self.k - self.jumps[-1].k)
+        self.jumps.pop()
+        self.loops.pop()
+        self.dismiss_iterator(i)
+        self.forget_all_registers()
 
     def c_exit_for_down_to(self):
+        i = self.loops[-1].iterator
+        self.variable_to_register("f", i)
+        self.variable_to_register("c", i.end)
+        self.jumps.append(Jump(self.k))
+        self.add_command("JZERO f ")
+        self.add_command("DEC f")
+        self.save_to_memory("f", i)
+        self.add_command("INC f")
+        self.add_command("SUB f c")
+        self.jumps.append(Jump(self.k))
+        self.add_command("JZERO f ")
+        self.add_command("JUMP {}".format(self.jumps[-3].k - self.k + 1))
+        self.commands[self.jumps[-1].k] += str(self.k - self.jumps[-1].k)
+        self.jumps.pop()
+        self.commands[self.jumps[-1].k] += str(self.k - self.jumps[-1].k)
+        self.jumps.pop()
+        self.commands[self.jumps[-1].k] += str(self.k - self.jumps[-1].k)
+        self.jumps.pop()
+        self.loops.pop()
+        self.dismiss_iterator(i)
+        self.forget_all_registers()
+
+    def exit_for_loop(self, iterator):
         pass
 
     def conditions(self, name_a, name_b, operation, line):

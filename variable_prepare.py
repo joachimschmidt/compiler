@@ -30,7 +30,7 @@ class VariablePrepare:
                 arrays[name] = variable
             elif isinstance(variable, Iterator):
                 variable.memory_address = memory_index
-                memory_index += 1
+                memory_index += 2
                 optimized_variables[name] = variable
 
         for name, identifier in identifiers.items():
