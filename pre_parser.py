@@ -7,7 +7,9 @@ from variable import *
 
 class CompilerPreParser(Parser):
     tokens = CompilerLexer.tokens
-    variables = {}
+
+    def __init__(self):
+        self.variables = {}
 
     def declare_variable(self, name, line):
         if name in self.variables.keys():

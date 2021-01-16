@@ -4,3 +4,13 @@ __pycache__/
 out.mr
 test1.imp
 maszyna-wirtualna-cln
+.coverage
+hard_test.py
+htmlcov/
+maszyna-wirtualna-debug
+out.txt
+test.py
+tests_bad/
+tests_bauer/
+tests_gebala/
+tests_gotfryd/

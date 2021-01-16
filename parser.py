@@ -98,7 +98,7 @@ class CompilerParser(Parser):
 
     @_('')
     def begin_for_to(self, p):
-        print("FOR {} FROM {} TO {}".format(p[-6], p[-4], p[-2]))
+        #print("FOR {} FROM {} TO {}".format(p[-6], p[-4], p[-2]))
         self.generator.c_for_to(p[-6], p[-4], p[-2], 0)
 
     @_('FOR PIDENTIFIER FROM value DOWNTO value DO begin_for_down_to commands ENDFOR')

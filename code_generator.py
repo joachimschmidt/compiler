@@ -110,7 +110,7 @@ class CodeGenerator:
 
     def set_register_value(self, letter, value):
         cost, method = self.get_cost_and_method_of_set_register_to_value(letter, value)
-        print("Setting {} to {} by {} that costs {}".format(letter, value, method, cost))
+        #print("Setting {} to {} by {} that costs {}".format(letter, value, method, cost))
         register = self.get_register_by_letter(letter)
         ready_code = set_register_to_value(method, letter, value, self.get_all_registers(), register)
         self.k += len(ready_code)

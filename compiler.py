@@ -1,5 +1,3 @@
-import argparse
-
 from code_generator import CodeGenerator
 from compiler_exception import CompilerException
 from lexer import CompilerLexer
@@ -8,36 +6,41 @@ from pre_parser import CompilerPreParser
 from variable_prepare import VariablePrepare
 
 
-def parse_arguments():
-    argument_parser = argparse.ArgumentParser()
-    argument_parser.add_argument(
-        'input_file',
-        help='.imp file'
-    )
-    argument_parser.add_argument(
-        'output_file',
-        help='.mr file'
-    )
-    return argument_parser.parse_args()
+class Compiler:
+    def __init__(self, file_in, file_out):
+        self.file_in = file_in
+        self.file_out = file_out
+        self.code = None
+        self.commands = []
+        self.variables = {}
+        self.error = False
 
+    def read_from_file(self):
+        with open(self.file_in, 'r') as input_file:
+            self.code = input_file.read()
 
-if __name__ == '__main__':
-    args = parse_arguments()
-    with open(args.input_file, 'r') as input_file:
-        code = input_file.read()
+    def compile(self):
         lexer = CompilerLexer()
         pre_parser = CompilerPreParser()
         try:
-            pre_parse_ready = lexer.tokenize(code)
-            parse_ready = lexer.tokenize(code)
-            variables = pre_parser.parse(pre_parse_ready)
-            variable_prepare = VariablePrepare(variables)
+            pre_parse_ready = lexer.tokenize(self.code)
+            parse_ready = lexer.tokenize(self.code)
+            self.variables = pre_parser.parse(pre_parse_ready)
+            variable_prepare = VariablePrepare(self.variables)
             optimized_variables = variable_prepare.get_optimized_variables()
-            variable_prepare.print_variables()
+            #variable_prepare.print_variables()
             generator = CodeGenerator(optimized_variables)
             parser = CompilerParser(generator)
             parser.parse(parse_ready)
-            with open(args.output_file, 'w') as output_file:
-                output_file.write("\n".join(generator.commands))
+            self.commands = generator.commands
         except CompilerException as e:
+            self.error = True
             print("Error: {} on line {}".format(e.error, e.line))
+
+    def write_to_file(self):
+        if not self.error:
+            with open(self.file_out, 'w') as output_file:
+                output_file.write("\n".join(self.commands))
+                return True
+        else:
+            return False
