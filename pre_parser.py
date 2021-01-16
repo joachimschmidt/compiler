@@ -31,15 +31,13 @@ class CompilerPreParser(Parser):
         elif not isinstance(self.variables[variable], Iterator):
             self.variables[variable].occurrences += 1
 
-    def count_number(self, number, in_write=False):
+    def count_number(self, number):
         if number not in self.variables.keys():
             new_variable = Number(number, number, None)
             new_variable.occurrences = 1
             self.variables[number] = new_variable
         else:
             self.variables[number].occurrences += 1
-        if in_write:
-            self.variables[number].in_write = True
 
     def declare_array(self, name, start, end):
         variable = Array(name, start, end, 0)

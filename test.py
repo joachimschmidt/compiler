@@ -9,7 +9,7 @@ class BauerTests(unittest.TestCase):
         files = [f for f in os.listdir("tests_bauer") if os.path.isfile(os.path.join("tests_bauer", f))]
         for i, file in enumerate(files):
             with self.subTest(i=i):
-                #print("i: {} file: tests_bauer/{}".format(i, file))
+                # print("i: {} file: tests_bauer/{}".format(i, file))
                 cost = 0
                 compiler = Compiler("tests_bauer/{}".format(file), "out.mr")
                 compiler.read_from_file()
@@ -24,7 +24,7 @@ class BauerTests(unittest.TestCase):
                 corrects_file.close()
                 corrects = [x.strip().split() for x in corrects]
                 for i, data_set in enumerate(inputs):
-                    #print(data_set)
+                    # print(data_set)
                     correct = corrects[i]
                     os.system("echo \"{}\" | ./maszyna-wirtualna-cln-test out.mr > out.txt".format(" ".join(data_set)))
                     result_file = open("out.txt", "r")
@@ -32,8 +32,37 @@ class BauerTests(unittest.TestCase):
                     result_file.close()
                     cost += int(result[-1])
                     result.pop()
-                    #print(result)
-                    #print(correct)
+                    # print(result)
+                    # print(correct)
+                    self.assertEqual(result, correct)
+
+
+class SchmidtTests(unittest.TestCase):
+    def test_compiler(self):
+        files = [f for f in os.listdir("tests_schmidt") if os.path.isfile(os.path.join("tests_schmidt", f))]
+        for i, file in enumerate(files):
+            with self.subTest(i=i):
+                cost = 0
+                compiler = Compiler("tests_schmidt/{}".format(file), "out.mr")
+                compiler.read_from_file()
+                compiler.compile()
+                self.assertTrue(compiler.write_to_file())
+                inputs_file = open("tests_schmidt/in/{}".format(file), "r")
+                inputs = inputs_file.read().split("X")
+                inputs_file.close()
+                inputs = [x.strip().split() for x in inputs]
+                corrects_file = open("tests_schmidt/correct/{}".format(file), "r")
+                corrects = corrects_file.read().split("X")
+                corrects_file.close()
+                corrects = [x.strip().split() for x in corrects]
+                for i, data_set in enumerate(inputs):
+                    correct = corrects[i]
+                    os.system("echo \"{}\" | ./maszyna-wirtualna-cln-test out.mr > out.txt".format(" ".join(data_set)))
+                    result_file = open("out.txt", "r")
+                    result = result_file.read().split()
+                    result_file.close()
+                    cost += int(result[-1])
+                    result.pop()
                     self.assertEqual(result, correct)
 
 
