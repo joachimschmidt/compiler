@@ -1,6 +1,6 @@
 import math
 
-from variable import Number
+from definitions.variable import Number
 
 
 def e_mul(self, a, b, line):

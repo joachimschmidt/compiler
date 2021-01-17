@@ -1,4 +1,4 @@
-from variable import Number
+from definitions.variable import Number
 
 
 def e_operation(self, name_a, name_b, operation, line):

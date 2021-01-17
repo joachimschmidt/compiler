@@ -1,5 +1,5 @@
 from code_generator import CodeGenerator
-from compiler_exception import CompilerException
+from definitions.compiler_exception import CompilerException
 from lexer import CompilerLexer
 from parser import CompilerParser
 from pre_parser import CompilerPreParser

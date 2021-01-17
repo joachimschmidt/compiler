@@ -1,4 +1,4 @@
-from variable import *
+from definitions.variable import *
 from register_utils import cost_of_set_const
 
 
@@ -31,16 +31,28 @@ class VariablePrepare:
                 else:
                     numbers[name] = variable
             elif isinstance(variable, Array):
-                arrays[name] = variable
+                size = variable.end - variable.start + 1
+                if size < 4:
+                    identifiers[name] = variable
+                else:
+                    arrays[name] = variable
             elif isinstance(variable, Iterator):
-                variable.memory_address = memory_index
-                memory_index += 2
-                optimized_variables[name] = variable
+                identifiers[name] = variable
 
         for name, identifier in identifiers.items():
-            identifier.memory_address = memory_index
-            memory_index += 1
-            optimized_variables[name] = identifier
+            if isinstance(identifier, Iterator):
+                identifier.memory_address = memory_index
+                memory_index += 2
+                optimized_variables[name] = identifier
+            elif isinstance(identifier, Array):
+                identifier.memory_address = memory_index
+                size = identifier.end - identifier.start + 1
+                memory_index += size
+                optimized_variables[name] = identifier
+            else:
+                identifier.memory_address = memory_index
+                memory_index += 1
+                optimized_variables[name] = identifier
 
         for name, array in arrays.items():
             array.memory_address = memory_index

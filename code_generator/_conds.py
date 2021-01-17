@@ -1,5 +1,5 @@
-from jump import Jump
-from variable import Number
+from definitions.jump import Jump
+from definitions.variable import Number
 
 
 def conditions(self, name_a, name_b, operation, line):

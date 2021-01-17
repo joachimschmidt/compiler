@@ -1,8 +1,8 @@
 from sly import Parser
 
-from compiler_exception import CompilerException
+from definitions.compiler_exception import CompilerException
 from lexer import CompilerLexer
-from variable import *
+from definitions.variable import *
 
 
 class CompilerPreParser(Parser):
@@ -11,6 +11,7 @@ class CompilerPreParser(Parser):
     def __init__(self):
         self.variables = {}
         self.in_loop = False
+        self.range_of_loop = None
 
     def declare_variable(self, name, line):
         if name in self.variables.keys():
@@ -18,20 +19,28 @@ class CompilerPreParser(Parser):
         new_variable = Identifier(name, None)
         self.variables[name] = new_variable
 
-    def declare_iterator(self, name, line):
+    def declare_iterator(self, name, line, range=None):
         if name in self.variables.keys() and not isinstance(self.variables[name], Iterator):
             raise CompilerException("{} cannot be used as an iterator. Iterator is local for each loop".format(name),
                                     line)
         if name not in self.variables.keys():
             new_variable = Iterator(name, None)
+            if range is not None:
+                new_variable.occurrences = range
+            else:
+                new_variable.occurrences = 10
             self.variables[name] = new_variable
 
     def count_variable(self, variable, line):
         if variable not in self.variables.keys():
             raise CompilerException("{} not declared".format(variable), line)
-        elif not isinstance(self.variables[variable], Iterator):
+        else:
             self.variables[variable].occurrences += 1
             if self.in_loop:
+                if self.range_of_loop is not None:
+                    self.variables[variable].occurrences += self.range_of_loop
+                else:
+                    self.variables[variable].occurrences += 10
                 self.variables[variable].in_loop = True
 
     def count_number(self, number):
@@ -45,6 +54,10 @@ class CompilerPreParser(Parser):
         else:
             self.variables[number].occurrences += 1
             if self.in_loop:
+                if self.range_of_loop is not None:
+                    self.variables[number].occurrences += self.range_of_loop
+                else:
+                    self.variables[number].occurrences += 10
                 self.variables[number].in_loop = True
 
     def declare_array(self, name, start, end):
@@ -118,10 +131,12 @@ class CompilerPreParser(Parser):
     @_('WHILE begin_while condition DO commands ENDWHILE')
     def command(self, p):
         self.in_loop = False
+        self.range_of_loop = None
 
     @_('REPEAT begin_while commands UNTIL condition SEMICOLON')
     def command(self, p):
         self.in_loop = False
+        self.range_of_loop = None
 
     @_('')
     def begin_while(self, p):
@@ -130,19 +145,33 @@ class CompilerPreParser(Parser):
     @_('FOR PIDENTIFIER FROM value TO value DO begin_for_to commands ENDFOR')
     def command(self, p):
         self.in_loop = False
+        self.range_of_loop = None
 
     @_('')
     def begin_for_to(self, p):
         self.in_loop = True
+        if isinstance(p[-4], Number) and isinstance(p[-2], Number):
+            if self.range_of_loop is not None:
+                self.range_of_loop *= abs(p[-2].value - p[-4].value)
+            else:
+                self.range_of_loop = p[-2].value - p[-4].value
+            self.declare_iterator(p[-6], -1, self.range_of_loop)
         self.declare_iterator(p[-6], -1)
 
     @_('FOR PIDENTIFIER FROM value DOWNTO value DO begin_for_downto commands ENDFOR')
     def command(self, p):
         self.in_loop = False
+        self.range_of_loop = None
 
     @_('')
     def begin_for_downto(self, p):
         self.in_loop = True
+        if isinstance(p[-4], Number) and isinstance(p[-2], Number):
+            if self.range_of_loop is not None:
+                self.range_of_loop *= abs(p[-2].value - p[-4].value)
+            else:
+                self.range_of_loop = abs(p[-4].value - p[-2].value)
+            self.declare_iterator(p[-6], -1, self.range_of_loop)
         self.declare_iterator(p[-6], -1)
 
     @_('READ identifier SEMICOLON')

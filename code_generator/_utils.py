@@ -1,9 +1,9 @@
 import copy
 
-from compiler_exception import CompilerException
-from register import Register
+from definitions.compiler_exception import CompilerException
+from definitions.register import Register
 from register_utils import set_register_to_value, get_set_register_best_method
-from variable import *
+from definitions.variable import *
 
 
 def generate_registers(self):

@@ -1,5 +1,5 @@
 from sly import Lexer
-from compiler_exception import CompilerException
+from definitions.compiler_exception import CompilerException
 
 
 class CompilerLexer(Lexer):
@@ -52,12 +52,16 @@ class CompilerLexer(Lexer):
         t.value = int(t.value)
         return t
 
+    @_(r'\[[^\]]*\]')
+    def ignore_comment(self, t):
+        lines = len(t.value.split('\n'))
+        self.lineno += lines-1
+
     ignore = " \t\r"
-    ignore_comment = r'\[[^\]]*\]'
 
     @_(r'\n+')
     def ignore_newline(self, t):
         self.lineno += len(t.value)
 
     def error(self, t):
-        raise CompilerException("Syntax error",self.lineno)
+        raise CompilerException("Syntax error", self.lineno)

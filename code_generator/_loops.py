@@ -1,8 +1,8 @@
 import copy
 
-from jump import Jump
-from loop import Loop
-from variable import Iterator, Number
+from definitions.jump import Jump
+from definitions.loop import Loop
+from definitions.variable import Iterator, Number
 
 
 def c_begin_if(self):

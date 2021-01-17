@@ -1,4 +1,4 @@
-from variable import Number
+from definitions.variable import Number
 
 
 def e_add(self, a, b, line):
@@ -23,122 +23,21 @@ def e_add(self, a, b, line):
             self.get_from_memory("d", b)
             cost_alt3 += 25
             self.load_savepoint()
-            cost_alt4 = self.set_register_value("a", a.memory_address)
-            self.get_from_memory("b", a)
-            cost_alt4 += self.set_register_to_number("b", b)
-            cost_alt4 += 25
-            self.load_savepoint()
-            cost_alt5 = self.set_register_value("a", b.memory_address)
-            self.get_from_memory("b", b)
-            cost_alt5 += self.set_register_to_number("d", a)
-            cost_alt5 += 25
-            self.load_savepoint()
-            cost_alt6 = self.set_register_value("a", a.memory_address)
-            cost_alt6 += 20 + b.value
-            self.load_savepoint()
-            cost_alt7 = self.set_register_value("a", b.memory_address)
-            cost_alt7 += 20 + a.value
-            self.load_savepoint()
-
-            if cost_const <= cost_alt1 and cost_const <= cost_alt2 and cost_const <= cost_alt3 and cost_const <= cost_alt4 and cost_const <= cost_alt5 and cost_const <= cost_alt6 and cost_const <= cost_alt7:
+            if cost_const <= cost_alt1 and cost_const <= cost_alt2 and cost_const <= cost_alt3:
                 self.set_register_value("b", result)
             else:
-                if cost_alt1 <= cost_alt2 and cost_alt1 <= cost_alt3 and cost_alt1 <= cost_alt4 and cost_alt1 <= cost_alt5 and cost_alt1 <= cost_alt6 and cost_alt1 <= cost_alt7:
+                if cost_alt1 <= cost_alt2 and cost_alt1 <= cost_alt3:
                     self.set_register_to_number("b", a)
                     self.set_register_to_number("d", b)
-                elif cost_alt2 <= cost_alt1 and cost_alt2 <= cost_alt3 and cost_alt2 <= cost_alt4 and cost_alt2 <= cost_alt5 and cost_alt2 <= cost_alt6 and cost_alt2 <= cost_alt7:
+                elif cost_alt2 <= cost_alt1 and cost_alt2 <= cost_alt3:
                     self.set_register_to_number("b", b)
                     self.set_register_to_number("d", a)
-                elif cost_alt3 <= cost_alt1 and cost_alt3 <= cost_alt2 and cost_alt3 <= cost_alt4 and cost_alt3 <= cost_alt5 and cost_alt3 <= cost_alt6 and cost_alt3 <= cost_alt7:
+                elif cost_alt3 <= cost_alt1 and cost_alt3 <= cost_alt2:
                     self.get_from_memory("b", a)
                     self.get_from_memory("d", b)
-                elif cost_alt4 <= cost_alt1 and cost_alt4 <= cost_alt2 and cost_alt4 <= cost_alt3 and cost_alt4 <= cost_alt5 and cost_alt4 <= cost_alt6 and cost_alt4 <= cost_alt7:
-                    self.get_from_memory("b", a)
-                    self.set_register_to_number("d", b)
-                elif cost_alt5 <= cost_alt1 and cost_alt5 <= cost_alt2 and cost_alt5 <= cost_alt3 and cost_alt5 <= cost_alt4 and cost_alt5 <= cost_alt6 and cost_alt5 <= cost_alt7:
-                    self.get_from_memory("b", b)
-                    self.set_register_to_number("d", a)
-                elif cost_alt6 <= cost_alt1 and cost_alt6 <= cost_alt2 and cost_alt6 <= cost_alt3 and cost_alt6 <= cost_alt4 and cost_alt6 <= cost_alt5 and cost_alt6 <= cost_alt7:
-                    self.get_from_memory("b", a)
-                    for x in range(b.value):
-                        self.add_command("INC b")
-                        self.remember_register("b", result)
-                    return
-                else:
-                    self.get_from_memory("b", b)
-                    for x in range(a.value):
-                        self.add_command("INC b")
-                        self.remember_register("b", result)
-                    return
-
-                self.add_command("ADD b d")
-        elif a.saved:
-            cost_alt3 = self.set_register_value("a", a.memory_address)
-            self.get_from_memory("b", a)
-            cost_alt3 += self.set_register_to_number("b", b)
-            cost_alt3 += 25
-            self.load_savepoint()
-            cost_alt4 = self.set_register_value("a", a.memory_address)
-            cost_alt4 += 20 + b.value
-            self.load_savepoint()
-            if cost_const <= cost_alt1 and cost_const <= cost_alt2 and cost_const <= cost_alt3 and cost_const <= cost_alt4:
-                self.set_register_value("b", result)
-            else:
-                if cost_alt1 <= cost_alt2 and cost_alt1 <= cost_alt3 and cost_alt1 <= cost_alt4:
-                    self.set_register_to_number("b", a)
-                    self.set_register_to_number("d", b)
-                elif cost_alt2 <= cost_alt1 and cost_alt2 <= cost_alt3 and cost_alt2 <= cost_alt4:
-                    self.set_register_to_number("b", b)
-                    self.set_register_to_number("d", a)
-                elif cost_alt3 <= cost_alt1 and cost_alt3 <= cost_alt2 and cost_alt3 <= cost_alt4:
-                    self.get_from_memory("b", a)
-                    self.set_register_to_number("d", b)
-                else:
-                    self.get_from_memory("b", a)
-                    for x in range(b.value):
-                        self.add_command("INC b")
-                        self.remember_register("b", result)
-                    return
-                self.add_command("ADD b d")
-        elif b.saved:
-            cost_alt3 = self.set_register_value("a", b.memory_address)
-            self.get_from_memory("b", b)
-            cost_alt3 += self.set_register_to_number("d", a)
-            cost_alt3 += 25
-            self.load_savepoint()
-            cost_alt4 = self.set_register_value("a", b.memory_address)
-            cost_alt4 += 20 + a.value
-            self.load_savepoint()
-            if cost_const <= cost_alt1 and cost_const <= cost_alt2 and cost_const <= cost_alt3  and cost_const <= cost_alt4:
-                self.set_register_value("b", result)
-            else:
-                if cost_alt1 <= cost_alt2 and cost_alt1 <= cost_alt3  and cost_alt1 <= cost_alt4:
-                    self.set_register_to_number("b", a)
-                    self.set_register_to_number("d", b)
-                elif cost_alt2 <= cost_alt1 and cost_alt2 <= cost_alt3 and cost_alt2 <= cost_alt4:
-                    self.set_register_to_number("b", b)
-                    self.set_register_to_number("d", a)
-                elif cost_alt3 <= cost_alt1 and cost_alt3 <= cost_alt2 and cost_alt3 <= cost_alt4:
-                    self.get_from_memory("b", b)
-                    self.set_register_to_number("d", a)
-                else:
-                    self.get_from_memory("b", b)
-                    for x in range(a.value):
-                        self.add_command("INC b")
-                        self.remember_register("b", result)
-                    return
                 self.add_command("ADD b d")
         else:
-            if cost_const <= cost_alt1 and cost_const <= cost_alt2:
-                self.set_register_value("b", result)
-            else:
-                if cost_alt1 <= cost_alt2:
-                    self.set_register_to_number("b", a)
-                    self.set_register_to_number("d", b)
-                else:
-                    self.set_register_to_number("b", b)
-                    self.set_register_to_number("d", a)
-                self.add_command("ADD b d")
+            self.set_register_value("b", result)
         self.remember_register("b", result)
     elif isinstance(a, Number):
         self.create_savepoint()

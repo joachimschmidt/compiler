@@ -1,4 +1,4 @@
-from variable import *
+from definitions.variable import *
 
 
 def c_assign(self, name, line):
