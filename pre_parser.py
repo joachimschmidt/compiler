@@ -10,6 +10,7 @@ class CompilerPreParser(Parser):
 
     def __init__(self):
         self.variables = {}
+        self.in_loop = False
 
     def declare_variable(self, name, line):
         if name in self.variables.keys():
@@ -30,14 +31,21 @@ class CompilerPreParser(Parser):
             raise CompilerException("{} not declared".format(variable), line)
         elif not isinstance(self.variables[variable], Iterator):
             self.variables[variable].occurrences += 1
+            if self.in_loop:
+                self.variables[variable].in_loop = True
 
     def count_number(self, number):
         if number not in self.variables.keys():
             new_variable = Number(number, number, None)
             new_variable.occurrences = 1
+            if self.in_loop:
+                new_variable.in_loop = True
             self.variables[number] = new_variable
+
         else:
             self.variables[number].occurrences += 1
+            if self.in_loop:
+                self.variables[number].in_loop = True
 
     def declare_array(self, name, start, end):
         variable = Array(name, start, end, 0)
@@ -109,30 +117,32 @@ class CompilerPreParser(Parser):
 
     @_('WHILE begin_while condition DO commands ENDWHILE')
     def command(self, p):
-        pass
+        self.in_loop = False
 
     @_('REPEAT begin_while commands UNTIL condition SEMICOLON')
     def command(self, p):
-        pass
+        self.in_loop = False
 
     @_('')
     def begin_while(self, p):
-        pass
+        self.in_loop = True
 
     @_('FOR PIDENTIFIER FROM value TO value DO begin_for_to commands ENDFOR')
     def command(self, p):
-        pass
+        self.in_loop = False
 
     @_('')
     def begin_for_to(self, p):
+        self.in_loop = True
         self.declare_iterator(p[-6], -1)
 
     @_('FOR PIDENTIFIER FROM value DOWNTO value DO begin_for_downto commands ENDFOR')
     def command(self, p):
-        pass
+        self.in_loop = False
 
     @_('')
     def begin_for_downto(self, p):
+        self.in_loop = True
         self.declare_iterator(p[-6], -1)
 
     @_('READ identifier SEMICOLON')

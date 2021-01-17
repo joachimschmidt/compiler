@@ -12,7 +12,7 @@ def c_begin_if(self):
 def c_if(self):
     self.commands[self.jumps[-1].k] += str(self.k - self.jumps[-1].k)
     self.jumps.pop()
-    self.forget_all_registers()
+    self.forget_everything()
 
 
 def c_if_else(self):
@@ -25,7 +25,7 @@ def c_if_else(self):
 
 def c_while(self):
     self.loops.append(Loop(self.k))
-    self.forget_all_registers()
+    self.forget_everything()
 
 
 def c_exit_while(self):
@@ -33,7 +33,7 @@ def c_exit_while(self):
     self.commands[self.jumps[-1].k] += str(self.k - self.jumps[-1].k)
     self.jumps.pop()
     self.loops.pop()
-    self.forget_all_registers()
+    self.forget_everything()
 
 
 def c_exit_repeat(self):
@@ -44,7 +44,7 @@ def c_exit_repeat(self):
     self.add_command("JUMP 2")
     self.add_command("JUMP {}".format(self.loops[-1].k - self.k))
     self.loops.pop()
-    self.forget_all_registers()
+    self.forget_everything()
 
 
 def prepare_iterator(self, iterator, start, end, line):
@@ -68,7 +68,7 @@ def prepare_iterator(self, iterator, start, end, line):
                 cost = self.get_cost_and_method_of_set_register_to_value("a", i.end.memory_address, cost_only=True)
                 cost += 20
                 self.backup_registers()
-                self.forget_all_registers()
+                self.forget_everything()
                 cost2 = self.get_cost_and_method_of_set_register_to_value("c", i.end.value, cost_only=True)
                 self.restore_registers()
                 if cost < cost2:
@@ -99,7 +99,7 @@ def c_for_to(self, iterator, start, end, line):
     self.add_command("SUB c f")
     self.jumps.append(Jump(self.k))
     self.add_command("JZERO c ")
-    self.forget_all_registers()
+    self.forget_everything()
 
 
 def c_for_down_to(self, iterator, start, end, line):
@@ -108,7 +108,7 @@ def c_for_down_to(self, iterator, start, end, line):
     self.add_command("SUB f c")
     self.jumps.append(Jump(self.k))
     self.add_command("JZERO f ")
-    self.forget_all_registers()
+    self.forget_everything()
 
 
 def c_exit_for_to(self):
@@ -128,7 +128,7 @@ def c_exit_for_to(self):
     self.jumps.pop()
     self.loops.pop()
     self.dismiss_iterator(i)
-    self.forget_all_registers()
+    self.forget_everything()
 
 
 def c_exit_for_down_to(self):
@@ -152,4 +152,4 @@ def c_exit_for_down_to(self):
     self.jumps.pop()
     self.loops.pop()
     self.dismiss_iterator(i)
-    self.forget_all_registers()
+    self.forget_everything()

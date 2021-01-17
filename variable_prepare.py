@@ -1,4 +1,5 @@
 from variable import *
+from register_utils import cost_of_set_const
 
 
 class VariablePrepare:
@@ -7,8 +8,9 @@ class VariablePrepare:
 
     def print_variables(self):
         for name, variable in self.variables.items():
-            print("Variable {} memoryindex {} with {} occurrences".format(name, variable.memory_address,
-                                                                          variable.occurrences))
+            print("Variable {} memoryindex {} with {} occurrences and in loop: {}".format(name, variable.memory_address,
+                                                                                          variable.occurrences,
+                                                                                          variable.in_loop))
 
     def calculate_optimized_variables(self):
         memory_index = 0
@@ -21,7 +23,9 @@ class VariablePrepare:
             if isinstance(variable, Identifier):
                 identifiers[name] = variable
             elif isinstance(variable, Number):
-                if variable.in_write or (variable.occurrences > 1 and variable.value > 100):
+                if variable.in_write or (variable.occurrences > 1 and cost_of_set_const(variable.value) > 30) or (
+                        cost_of_set_const(variable.value) > 25 and
+                        variable.in_loop):
                     variable.is_stored = True
                     identifiers[name] = variable
                 else:

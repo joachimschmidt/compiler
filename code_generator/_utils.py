@@ -58,14 +58,17 @@ def check_array_reference_by_identifier(self, array, index, line):
     variable = self.variables[index]
     array = copy.deepcopy(self.variables[array])
     self.check_initialization(variable, line)
-    return array, variable, "id"
+    if isinstance(variable,Identifier) and variable.known_value:
+        return array, variable.value, "number"
+    else:
+        return array, variable, "id"
 
 
 def set_address(self, variable):
     if not isinstance(variable, Array):
         self.set_register_value("a", variable.memory_address)
     else:
-        if isinstance(variable.occurrences, int):
+        if isinstance(variable.occurrences, int) :
             value = variable.memory_address + variable.occurrences - variable.start
             self.set_register_value("a", value)
         else:
@@ -84,6 +87,11 @@ def save_to_memory(self, register, variable, iterator_end=False):
     if isinstance(variable, Number) and not iterator_end:
         self.variables[variable.name].saved = True
     elif isinstance(variable, Identifier):
+        if self.registers[register].known_value:
+            self.variables[variable.name].known_value = True
+            self.variables[variable.name].value = self.registers[register].value
+        else:
+            self.variables[variable.name].known_value = False
         self.variables[variable.name].initialized = True
 
 
@@ -96,7 +104,7 @@ def get_from_memory(self, register, variable):
             return
     self.set_address(variable)
     self.add_command("LOAD {} {}".format(register, "a"))
-    if isinstance(variable, Number):
+    if isinstance(variable, Number) or (isinstance(variable, Identifier) and variable.known_value):
         self.remember_register(register, variable.value)
     else:
         self.forget_register(register)
@@ -113,10 +121,17 @@ def set_register_value(self, letter, value):
     return cost
 
 
+def save_numbers_from_loop(self):
+    for name, var in self.variables.items():
+        if isinstance(var, Number) and var.is_stored and var.in_loop:
+            set_register_value(self, "b", var.value)
+            save_to_memory(self, "b", var)
+
+
 def set_register_to_number(self, letter, number, optimize=False):
     if not optimize:
         cost = self.set_register_value(letter, number.value)
-        if number.is_stored and not number.saved:
+        if number.is_stored and not number.saved and len(self.loops) == 0:
             self.save_to_memory(letter, number)
         return cost
     else:
@@ -183,7 +198,18 @@ def forget_register(self, letter):
     self.registers[letter].known_value = False
 
 
-def forget_all_registers(self):
+def forget_everything(self):
+    forget_registers(self)
+    forget_variables(self)
+
+
+def forget_variables(self):
+    for name, var in self.variables.items():
+        if isinstance(var, Identifier):
+            self.variables[name].known_value = False
+
+
+def forget_registers(self):
     self.forget_register("a")
     self.forget_register("b")
     self.forget_register("c")
@@ -208,6 +234,11 @@ def remember_register(self, letter, value):
 def variable_to_register(self, register, variable):
     if isinstance(variable, Number):
         self.set_register_to_number(register, variable, optimize=True)
+    elif isinstance(variable, Identifier) and variable.known_value:
+        variable = Number(variable.value, variable.value, variable.memory_address)
+        variable.saved = True
+        variable.is_stored = True
+        self.set_register_to_number(register, variable, optimize=True)
     else:
         self.get_from_memory(register, variable)
 
@@ -215,6 +246,14 @@ def variable_to_register(self, register, variable):
 def prepare_and_check_initialization(self, name_a, name_b, line):
     a = self.prepare_variable(name_a, line)
     b = self.prepare_variable(name_b, line)
+    if isinstance(a, Identifier) and a.known_value:
+        a = Number(a.value, a.value, a.memory_address)
+        a.is_stored = True
+        a.saved = True
+        if isinstance(b, Identifier) and b.known_value:
+            b = Number(b.value, b.value, b.memory_address)
+            b.is_stored = True
+            b.saved = True
     self.check_initialization(a, line)
     self.check_initialization(b, line)
     return a, b

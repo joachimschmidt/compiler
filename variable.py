@@ -3,6 +3,7 @@ class Variable:
         self.name = name
         self.memory_address = memory_address
         self.occurrences = 0
+        self.in_loop = False
 
     def __str__(self):
         return str(self.name)
@@ -39,4 +40,6 @@ class Array(Variable):
 class Identifier(Variable):
     def __init__(self, name, memory_address):
         self.initialized = False
+        self.known_value = False
+        self.value = None
         super().__init__(name, memory_address)
