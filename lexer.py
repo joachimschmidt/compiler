@@ -1,6 +1,7 @@
 from sly import Lexer
 from compiler_exception import CompilerException
 
+
 class CompilerLexer(Lexer):
     tokens = {DECLARE, BEGIN, END, ASSIGN, IF, THEN, ELSE, ENDIF, WHILE, DO, ENDWHILE, REPEAT, UNTIL, FOR, FROM, TO,
               ENDFOR, DOWNTO, READ, WRITE, ADDITION, SUBTRACTION, MULTIPLICATION, DIVIDE, MODULO, EQUAL, NOTEQUAL,
@@ -59,4 +60,4 @@ class CompilerLexer(Lexer):
         self.lineno += len(t.value)
 
     def error(self, t):
-        raise CompilerException("Syntax error")
+        raise CompilerException("Syntax error",self.lineno)

@@ -16,8 +16,8 @@ def e_div(self, a, b, line):
             self.set_register_value("b", 0)
             return
         else:
-            self.get_from_memory("c", b)
-            self.set_register_to_number("d", a)
+            self.get_from_memory("d", b)
+            self.set_register_to_number("f", a)
     elif isinstance(b, Number):
         if b.value == 0:
             self.set_register_value("b", 0)
@@ -32,13 +32,13 @@ def e_div(self, a, b, line):
                 self.add_command("SHR b")
             return
         else:
-            self.get_from_memory("d", a)
-            self.set_register_to_number("c", b)
+            self.get_from_memory("f", a)
+            self.set_register_to_number("d", b)
     else:
-        self.get_from_memory("d", a)
-        self.get_from_memory("c", b)
+        self.get_from_memory("f", a)
+        self.get_from_memory("d", b)
     self.add_command("RESET b")
-    self.add_command("JZERO c 26")
+    self.add_command("JZERO d 26")
     self.insert_div_code()
 
 
@@ -55,52 +55,52 @@ def e_mod(self, a, b, line):
             self.set_register_value("b", 0)
             return
         else:
-            self.get_from_memory("c", b)
-            self.set_register_to_number("d", a)
+            self.get_from_memory("d", b)
+            self.set_register_to_number("f", a)
     elif isinstance(b, Number):
         if b.value == 0 or b.value == 1:
             self.set_register_value("b", 0)
             return
         else:
-            self.get_from_memory("d", a)
-            self.set_register_to_number("c", b)
+            self.get_from_memory("f", a)
+            self.set_register_to_number("d", b)
     else:
-        self.get_from_memory("d", a)
-        self.get_from_memory("c", b)
-    self.add_command("JZERO c 27")
+        self.get_from_memory("f", a)
+        self.get_from_memory("d", b)
+    self.add_command("JZERO d 27")
     self.insert_div_code()
     self.add_command("JUMP 2")
-    self.add_command("RESET d")
+    self.add_command("RESET f")
     self.add_command("RESET b")
-    self.add_command("ADD b d")
+    self.add_command("ADD b f")
 
 
 def insert_div_code(self):
-    self.add_command("RESET e")
-    self.add_command("ADD e c")
+    self.add_command("RESET c")
+    self.add_command("ADD c d")
     self.add_command("RESET b")
-    self.add_command("ADD b e")
-    self.add_command("SUB b d")
+    self.add_command("ADD b c")
+    self.add_command("SUB b f")
     self.add_command("JZERO b 2")
     self.add_command("JUMP 3")
-    self.add_command("SHL e")
+    self.add_command("SHL c")
     self.add_command("JUMP -6")
     self.add_command("RESET b")
-    self.add_command("RESET f")
-    self.add_command("ADD f e")
-    self.add_command("SUB f d")
-    self.add_command("JZERO f 4")
+    self.add_command("RESET e")
+    self.add_command("ADD e c")
+    self.add_command("SUB e f")
+    self.add_command("JZERO e 4")
     self.add_command("SHL b")
-    self.add_command("SHR e")
+    self.add_command("SHR c")
     self.add_command("JUMP 5")
     self.add_command("SHL b")
     self.add_command("INC b")
-    self.add_command("SUB d e")
-    self.add_command("SHR e")
-    self.add_command("RESET f")
-    self.add_command("ADD f c")
-    self.add_command("SUB f e")
-    self.add_command("JZERO f -14")
+    self.add_command("SUB f c")
+    self.add_command("SHR c")
+    self.add_command("RESET e")
+    self.add_command("ADD e d")
+    self.add_command("SUB e c")
+    self.add_command("JZERO e -14")
     self.forget_register("b")
     self.forget_register("c")
     self.forget_register("d")
